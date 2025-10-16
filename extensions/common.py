@@ -11,7 +11,12 @@ from gi.repository import GLib
 
 def setup_localisation():
     APP_NAME = "msvsphere-nautilus-extensions"
-    LOCALE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "po")
+    local_locale_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "po")
+    system_locale_dir = "/usr/share/locale"
+    if os.path.isdir(local_locale_dir):
+        LOCALE_DIR = local_locale_dir
+    else:
+        LOCALE_DIR = system_locale_dir
     locale.bindtextdomain(APP_NAME, LOCALE_DIR)
     gettext.bindtextdomain(APP_NAME, LOCALE_DIR)
     gettext.textdomain(APP_NAME)
