@@ -1,0 +1,189 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-10-14 03:31+0300\n"
+"PO-Revision-Date: 2025-10-14 03:35+0300\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Russian <LL@li.org>\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: extensions/nautilus-image-converter.py:41
+msgid "Image Converter"
+msgstr "Конвертер изображений"
+
+#: extensions/nautilus-image-converter.py:53
+#, python-brace-format
+msgid "Converting {0} files to {1}..."
+msgstr "Конвертация {0} файлов в {1}..."
+
+#: extensions/nautilus-image-converter.py:88
+#: extensions/nautilus-video-converter.py:384
+#: extensions/nautilus-audio-converter.py:293
+#: extensions/nautilus-video-audio-separator.py:96
+#: extensions/nautilus-video-audio-combiner.py:91
+#, python-brace-format
+msgid "Error: {0}"
+msgstr "Ошибка: {0}"
+
+#: extensions/nautilus-image-converter.py:106
+#: extensions/nautilus-video-converter.py:467
+#: extensions/nautilus-audio-converter.py:376
+msgid "Convert to"
+msgstr "Конвертировать в"
+
+#: extensions/nautilus-image-converter.py:107
+msgid "Converts selected image(s) to a different format"
+msgstr "Конвертирует выбранные изображения в другой формат"
+
+#: extensions/nautilus-image-converter.py:139
+#, python-brace-format
+msgid "Convert to {0}"
+msgstr "Конвертировать в {0}"
+
+#: extensions/nautilus-video-converter.py:117
+#: extensions/nautilus-audio-converter.py:116
+#, python-brace-format
+msgid ""
+"File {0}/{1}\n"
+"Source: \"{2}\"\n"
+"Destination: \"{3}\""
+msgstr ""
+"Файл {0}/{1}\n"
+"Источник: \"{2}\"\n"
+"Назначение: \"{3}\""
+
+#: extensions/nautilus-video-converter.py:209
+msgid "Video Converter"
+msgstr "Видеоконвертер"
+
+#: extensions/nautilus-video-converter.py:217
+#: extensions/nautilus-audio-converter.py:210
+msgid "Convert"
+msgstr "Конвертировать"
+
+#: extensions/nautilus-video-converter.py:232
+msgid "Video Codec:"
+msgstr "Видеокодек:"
+
+#: extensions/nautilus-video-converter.py:243
+msgid "Container:"
+msgstr "Контейнер:"
+
+#: extensions/nautilus-video-converter.py:256
+msgid "Advanced Options"
+msgstr "Расширенные настройки"
+
+#: extensions/nautilus-video-converter.py:276
+msgid "CRF:"
+msgstr "CRF:"
+
+#: extensions/nautilus-video-converter.py:285
+msgid "Preset:"
+msgstr "Предустановка:"
+
+#: extensions/nautilus-video-converter.py:296
+msgid "Pixel Format:"
+msgstr "Формат пикселя:"
+
+#: extensions/nautilus-video-converter.py:386
+#: extensions/nautilus-audio-converter.py:295
+msgid "Done!"
+msgstr "Готово!"
+
+#: extensions/nautilus-video-converter.py:403
+#: extensions/nautilus-audio-converter.py:312
+msgid "Conversion stopped."
+msgstr "Конвертация остановлена."
+
+#: extensions/nautilus-video-converter.py:405
+#: extensions/nautilus-audio-converter.py:314
+msgid "Conversion failed."
+msgstr "Ошибка конвертации."
+
+#: extensions/nautilus-video-converter.py:440
+#: extensions/nautilus-audio-converter.py:349
+#, python-brace-format
+msgid "Processing: {0}% {1}"
+msgstr "Обработка: {0}% {1}"
+
+#: extensions/nautilus-video-converter.py:468
+msgid "Converts selected video(s) to a different format"
+msgstr "Конвертирует выбранные видео в другой формат"
+
+#: extensions/nautilus-audio-converter.py:202
+msgid "Audio Converter"
+msgstr "Аудиоконвертер"
+
+#: extensions/nautilus-audio-converter.py:225
+msgid "Audio Codec:"
+msgstr "Аудиокодек:"
+
+#: extensions/nautilus-audio-converter.py:298
+msgid "Processing:"
+msgstr "Обработка:"
+
+#: extensions/nautilus-audio-converter.py:377
+msgid "Converts selected audio(s) to a different format"
+msgstr "Конвертирует выбранные аудио в другой формат"
+
+#: extensions/nautilus-video-audio-separator.py:36
+msgid "Separating Audio/Video"
+msgstr "Разделение аудио/видео"
+
+#: extensions/nautilus-video-audio-separator.py:47
+msgid "Separating audio and video for selected files..."
+msgstr "Разделение аудио и видео для выбранных файлов..."
+
+#: extensions/nautilus-video-audio-separator.py:113
+msgid "Separate Audio/Video"
+msgstr "Разделить аудио/видео"
+
+#: extensions/nautilus-video-audio-separator.py:114
+msgid "Separates audio and video from selected video file(s)"
+msgstr "Разделяет аудио и видео из выбранных видеофайлов"
+
+#: extensions/nautilus-video-audio-combiner.py:36
+msgid "Combining Audio/Video"
+msgstr "Объединение аудио/видео"
+
+#: extensions/nautilus-video-audio-combiner.py:47
+msgid "Combining audio and video..."
+msgstr "Объединение аудио и видео..."
+
+#: extensions/nautilus-video-audio-combiner.py:67
+msgid "Please select one video and one audio file."
+msgstr "Пожалуйста, выберите один видео и один аудиофайл."
+
+#: extensions/nautilus-video-audio-combiner.py:116
+msgid "Combine Audio/Video"
+msgstr "Объединить аудио/видео"
+
+#: extensions/nautilus-video-audio-combiner.py:117
+msgid "Combines a video file and an audio file"
+msgstr "Объединяет видеофайл и аудиофайл"
+
+#: extensions/nautilus-admin.py:40
+msgid "Open as A_dministrator"
+msgstr "Открыть от имени администратора"
+
+#: extensions/nautilus-admin.py:41
+msgid "Open this folder with root privileges"
+msgstr "Открыть эту папку с правами суперпользователя"
+
+#: extensions/nautilus-admin.py:47
+msgid "Edit as A_dministrator"
+msgstr "Редактировать от имени администратора"
+
+#: extensions/nautilus-admin.py:48
+msgid "Open this file in the text editor with root privileges"
+msgstr "Открыть этот файл в текстовом редакторе с правами суперпользователя"
