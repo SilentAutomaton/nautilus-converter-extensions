@@ -187,3 +187,15 @@ msgstr "Редактировать от имени администратора"
 #: extensions/nautilus-admin.py:48
 msgid "Open this file in the text editor with root privileges"
 msgstr "Открыть этот файл в текстовом редакторе с правами суперпользователя"
+
+#: extensions/nautilus-video-converter.py:305
+msgid "Resolution:"
+msgstr "Разрешение:"
+
+#: extensions/nautilus-video-converter.py:308
+msgid "Keep Aspect Ratio"
+msgstr "Сохранять соотношение сторон"
+
+#: extensions/nautilus-video-converter.py:319
+msgid "Bitrate (kbps):"
+msgstr "Битрейт (кбит/с):"

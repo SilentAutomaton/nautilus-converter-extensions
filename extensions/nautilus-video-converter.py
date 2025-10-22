@@ -126,6 +126,30 @@ class VideoConverterWindow(Gtk.Window):
         self.advanced_grid.attach(label_pix_fmt, 0, 2, 1, 1)
         self.advanced_grid.attach(self.pix_fmt_combo, 1, 2, 1, 1)
 
+        # Resolution
+        label_resolution = Gtk.Label(label=_("Resolution:"))
+        label_resolution.set_halign(Gtk.Align.START)
+        self.entry_width = Gtk.Entry()
+        self.entry_height = Gtk.Entry()
+        self.check_keep_aspect = Gtk.CheckButton(label=_("Keep Aspect Ratio"))
+        self.check_keep_aspect.set_active(True)
+
+        resolution_box = Gtk.Box(spacing=6)
+        resolution_box.append(self.entry_width)
+        resolution_box.append(Gtk.Label(label="x"))
+        resolution_box.append(self.entry_height)
+        resolution_box.append(self.check_keep_aspect)
+
+        self.advanced_grid.attach(label_resolution, 0, 3, 1, 1)
+        self.advanced_grid.attach(resolution_box, 1, 3, 1, 1)
+
+        # Bitrate
+        label_bitrate = Gtk.Label(label=_("Bitrate (kbps):"))
+        label_bitrate.set_halign(Gtk.Align.START)
+        self.entry_bitrate = Gtk.Entry()
+        self.advanced_grid.attach(label_bitrate, 0, 4, 1, 1)
+        self.advanced_grid.attach(self.entry_bitrate, 1, 4, 1, 1)
+
         # Convert button
         self.convert_button.connect("clicked", self.on_convert_clicked)
 
@@ -143,6 +167,46 @@ class VideoConverterWindow(Gtk.Window):
         self.label_ffmpeg_output = Gtk.Label()
         self.label_ffmpeg_output.set_ellipsize(3) # END
         vbox.append(self.label_ffmpeg_output)
+
+        video_infos = []
+        for file in self.files:
+            video_infos.append(self.get_video_info(file.get_location().get_path()))
+
+        all_same_resolution = len(set((info[0], info[1]) for info in video_infos)) == 1
+        all_same_pix_fmt = len(set(info[2] for info in video_infos)) == 1
+        all_same_bitrate = len(set(info[3] for info in video_infos)) == 1
+
+        if video_infos and all(info is not None for info in video_infos):
+            self.original_width, self.original_height, pix_fmt, bitrate = video_infos[0]
+
+            if all_same_resolution:
+                self.entry_width.set_text(str(self.original_width))
+                self.entry_height.set_text(str(self.original_height))
+                self.entry_width.connect("changed", self.on_width_changed)
+                self.entry_height.connect("changed", self.on_height_changed)
+            else:
+                self.entry_width.set_sensitive(False)
+                self.entry_height.set_sensitive(False)
+                self.check_keep_aspect.set_sensitive(False)
+
+            if all_same_pix_fmt:
+                for i, item in enumerate(self.pix_fmt_combo.get_model()):
+                    if item[0] == pix_fmt:
+                        self.pix_fmt_combo.set_active(i)
+                        break
+            else:
+                self.pix_fmt_combo.set_sensitive(False)
+
+            if all_same_bitrate:
+                self.entry_bitrate.set_text(str(bitrate / 1000) if bitrate else "")
+            else:
+                self.entry_bitrate.set_sensitive(False)
+        else:
+            self.entry_width.set_sensitive(False)
+            self.entry_height.set_sensitive(False)
+            self.check_keep_aspect.set_sensitive(False)
+            self.pix_fmt_combo.set_sensitive(False)
+            self.entry_bitrate.set_sensitive(False)
 
     def on_vcodec_changed(self, widget):
         vcodec_str = self.vcodec_combo.get_active_text()
@@ -179,6 +243,22 @@ class VideoConverterWindow(Gtk.Window):
                 pix_fmt = self.pix_fmt_combo.get_active_text()
                 args.extend(['-pix_fmt', pix_fmt])
 
+                if len(self.files) == 1:
+                    width = self.entry_width.get_text()
+                    height = self.entry_height.get_text()
+                    if width and height and width.isdigit() and height.isdigit():
+                        i_width = int(width)
+                        i_height = int(height)
+                        pix_fmt = self.pix_fmt_combo.get_active_text()
+                        if 'yuv420p' in pix_fmt:
+                            i_width = round(i_width / 2) * 2
+                            i_height = round(i_height / 2) * 2
+                        args.extend(['-vf', f'scale={i_width}:{i_height}'])
+
+                    bitrate = self.entry_bitrate.get_text()
+                    if bitrate and bitrate.isdigit():
+                        args.extend(['-b:v', f'{bitrate}k'])
+
             kwargs = {
                 'type': 'One pass',
                 'source': input_path,
@@ -202,6 +282,42 @@ class VideoConverterWindow(Gtk.Window):
             return float(duration_process.stdout)
         except (subprocess.CalledProcessError, ValueError):
             return 0
+
+    def get_video_info(self, input_path):
+        try:
+            info_process = subprocess.run([
+                'ffprobe', '-v', 'error', '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height,pix_fmt,bit_rate', '-of',
+                'default=noprint_wrappers=1:nokey=1', input_path
+            ], capture_output=True, text=True, check=True)
+            width, height, pix_fmt, bit_rate = info_process.stdout.strip().split('\n')
+            return int(width), int(height), pix_fmt, int(bit_rate) if bit_rate.isdigit() else 0
+        except (subprocess.CalledProcessError, ValueError):
+            return None, None, None, None
+
+    def on_width_changed(self, widget):
+        if self.check_keep_aspect.get_active() and self.original_width and self.original_height:
+            try:
+                new_width = int(self.entry_width.get_text())
+                if new_width > 0:
+                    new_height = int(new_width * self.original_height / self.original_width)
+                    self.entry_height.handler_block_by_func(self.on_height_changed)
+                    self.entry_height.set_text(str(new_height))
+                    self.entry_height.handler_unblock_by_func(self.on_height_changed)
+            except ValueError:
+                pass
+
+    def on_height_changed(self, widget):
+        if self.check_keep_aspect.get_active() and self.original_width and self.original_height:
+            try:
+                new_height = int(self.entry_height.get_text())
+                if new_height > 0:
+                    new_width = int(new_height * self.original_width / self.original_height)
+                    self.entry_width.handler_block_by_func(self.on_width_changed)
+                    self.entry_width.set_text(str(new_width))
+                    self.entry_width.handler_unblock_by_func(self.on_width_changed)
+            except ValueError:
+                pass
 
     def update_count(self, count, duration, end):
         if end == 'ERROR':
