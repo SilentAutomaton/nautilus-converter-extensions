@@ -13,6 +13,8 @@ class ImageConverterWindow(Gtk.ApplicationWindow):
         self.files = files
         self.format = format
         self.set_default_size(400, 100)
+        self.proc = None
+        self.connect("destroy", self.on_destroy)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         vbox.set_margin_top(12)
@@ -30,11 +32,16 @@ class ImageConverterWindow(Gtk.ApplicationWindow):
         self.thread = threading.Thread(target=self.convert_files)
         self.thread.start()
 
+    def on_destroy(self, widget):
+        if self.proc:
+            self.proc.terminate()
+
     def convert_files(self):
         for i, file in enumerate(self.files):
             input_path = file
             output_path = os.path.splitext(input_path)[0] + f'.{self.format}'
             
+            proc = None
             try:
                 with Popen(['convert', input_path, output_path],
                                  stderr=subprocess.PIPE,
@@ -43,12 +50,18 @@ class ImageConverterWindow(Gtk.ApplicationWindow):
                                  universal_newlines=True,
                                  encoding='utf-8',
                                  ) as proc:
+                    self.proc = proc
                     for line in proc.stderr:
                         pass
 
             except (OSError, FileNotFoundError) as e:
                 GLib.idle_add(self.update_ui_on_error, str(e))
                 return
+            except Exception:
+                pass
+
+            if proc and proc.returncode and proc.returncode != 0:
+                break
 
             fraction = (i + 1) / len(self.files)
             GLib.idle_add(self.progress_bar.set_fraction, fraction)
