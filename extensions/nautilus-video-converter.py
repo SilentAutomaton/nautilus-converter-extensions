@@ -1,3 +1,6 @@
+import gi
+gi.require_version('Nautilus', '3.0')
+gi.require_version('Gtk', '3.0')
 from gi.repository import Nautilus, GObject, Gtk, GLib
 import queue
 import subprocess
@@ -35,7 +38,7 @@ class VideoConverterWindow(Gtk.Window):
 
         header = Gtk.HeaderBar()
         self.set_titlebar(header)
-        header.set_show_title_buttons(True)
+        header.set_show_close_button(True)
 
         self.convert_button = Gtk.Button(label=_("Convert"))
         self.convert_button.get_style_context().add_class("suggested-action")
@@ -44,13 +47,13 @@ class VideoConverterWindow(Gtk.Window):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         vbox.set_margin_top(12)
         vbox.set_margin_bottom(12)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
-        self.set_child(vbox)
+        vbox.set_margin_left(12)
+        vbox.set_margin_right(12)
+        self.add(vbox)
 
         #  Format and Codec selection 
         grid = Gtk.Grid(column_spacing=10, row_spacing=10)
-        vbox.append(grid)
+        vbox.pack_start(grid, False, False, 0)
 
         label_vcodec = Gtk.Label(label=_("Video Codec:"))
         label_vcodec.set_halign(Gtk.Align.START)
@@ -74,25 +77,25 @@ class VideoConverterWindow(Gtk.Window):
         #  Advanced options 
         advanced_box = Gtk.Box(spacing=6)
         advanced_box.set_halign(Gtk.Align.START)
-        vbox.append(advanced_box)
+        vbox.pack_start(advanced_box, False, False, 0)
 
         label_advanced = Gtk.Label(label=_("Advanced Options"))
-        advanced_box.append(label_advanced)
+        advanced_box.pack_start(label_advanced, False, False, 0)
 
         self.advanced_switch = Gtk.Switch()
         self.advanced_switch.connect("notify::active", self.on_advanced_toggled)
-        advanced_box.append(self.advanced_switch)
+        advanced_box.pack_start(self.advanced_switch, False, False, 0)
 
         self.advanced_frame = Gtk.Frame()
         self.advanced_frame.set_visible(False)
-        vbox.append(self.advanced_frame)
+        vbox.pack_start(self.advanced_frame, False, False, 0)
 
         self.advanced_grid = Gtk.Grid(column_spacing=10, row_spacing=10)
         self.advanced_grid.set_margin_top(12)
         self.advanced_grid.set_margin_bottom(12)
         self.advanced_grid.set_margin_start(12)
         self.advanced_grid.set_margin_end(12)
-        self.advanced_frame.set_child(self.advanced_grid)
+        self.advanced_frame.add(self.advanced_grid)
 
         # Advanced options widgets 
         # CRF
@@ -135,10 +138,10 @@ class VideoConverterWindow(Gtk.Window):
         self.check_keep_aspect.set_active(True)
 
         resolution_box = Gtk.Box(spacing=6)
-        resolution_box.append(self.entry_width)
-        resolution_box.append(Gtk.Label(label="x"))
-        resolution_box.append(self.entry_height)
-        resolution_box.append(self.check_keep_aspect)
+        resolution_box.pack_start(self.entry_width, True, True, 0)
+        resolution_box.pack_start(Gtk.Label(label="x"), False, False, 0)
+        resolution_box.pack_start(self.entry_height, True, True, 0)
+        resolution_box.pack_start(self.check_keep_aspect, False, False, 0)
 
         self.advanced_grid.attach(label_resolution, 0, 3, 1, 1)
         self.advanced_grid.attach(resolution_box, 1, 3, 1, 1)
@@ -155,18 +158,18 @@ class VideoConverterWindow(Gtk.Window):
 
         #  Progress bar 
         self.progress_bar = Gtk.ProgressBar()
-        vbox.append(self.progress_bar)
+        vbox.pack_start(self.progress_bar, False, False, 0)
 
         #  Progress labels 
         self.label_file_count = Gtk.Label()
-        vbox.append(self.label_file_count)
+        vbox.pack_start(self.label_file_count, False, False, 0)
 
         self.label_timestamps = Gtk.Label()
-        vbox.append(self.label_timestamps)
+        vbox.pack_start(self.label_timestamps, False, False, 0)
 
         self.label_ffmpeg_output = Gtk.Label()
         self.label_ffmpeg_output.set_ellipsize(3) # END
-        vbox.append(self.label_ffmpeg_output)
+        vbox.pack_start(self.label_ffmpeg_output, False, False, 0)
 
         self.connect("destroy", self.on_destroy)
 
@@ -425,7 +428,7 @@ class VideoConverterExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
 
-    def get_file_items(self, files):
+    def get_file_items(self, window, files):
         if not files:
             return []
 
@@ -444,4 +447,4 @@ class VideoConverterExtension(GObject.GObject, Nautilus.MenuProvider):
 
     def show_converter_window(self, menu, files):
         win = VideoConverterWindow(files)
-        win.set_visible(True)
+        win.show_all()

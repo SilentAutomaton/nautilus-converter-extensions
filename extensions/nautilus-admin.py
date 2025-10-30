@@ -34,58 +34,52 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
                 return editor
         return None
 
-    def get_file_items(self, *args):
-        files = args[-1]
-        if self._is_root() or len(files) != 1:
+    def get_file_items(self, window, files):
+        if not files:
+            return
+
+        if len(files) > 1:
             return
 
         file = files[0]
-        items = []
-
-        if file.get_uri_scheme() == "file":
-            if file.is_directory():
-                if os.path.exists(NAUTILUS_PATH):
-                    items.append(self._create_nautilus_item(file))
-            else:  # It's a file
-                is_text = file.get_mime_type().startswith('text/')
-                filename = file.get_name()
-                has_no_extension = '.' not in filename or filename.rfind('.') == 0
-                if is_text or has_no_extension:
-                    editor = self._get_text_editor()
-                    if editor:
-                        items.append(self._create_gedit_item(file, editor))
-
-        return items
-
-    def get_background_items(self, *args):
-        file = args[-1]
-        if self._is_root():
+        if file.get_uri_scheme() not in ('file',):
             return
 
-        items = []
-        if file.is_directory() and file.get_uri_scheme() == "file":
-            if os.path.exists(NAUTILUS_PATH):
-                items.append(self._create_nautilus_item(file))
+        if file.is_directory():
+            return
+        
+        if not file.get_mime_type().startswith('text/'):
+            return
 
-        return items
+        if file.get_location().get_path() == '/':
+            return
 
-    def _create_nautilus_item(self, file):
-        item = Nautilus.MenuItem(
-            name="NautilusAdmin::Nautilus",
-            label=_("Open as Administrator"),
-            tip=_("Open this folder with root privileges"),
-        )
-        item.connect("activate", self._nautilus_run, file)
-        return item
+        editor_path = self._get_text_editor()
+        if not editor_path:
+            return
 
-    def _create_gedit_item(self, file, editor_path):
-        item = Nautilus.MenuItem(
-            name="NautilusAdmin::Gedit",
-            label=_("Edit as Administrator"),
-            tip=_("Open this file in the text editor with root privileges"),
-        )
-        item.connect("activate", self._gedit_run, file, editor_path)
-        return item
+        item = Nautilus.MenuItem(name='NautilusAdmin::EditAdmin',
+                                 label=_(u'_Edit as Administrator'),
+                                 tip=_(u'Edits the current file as an administrator'),
+                                 icon='nautilus-admin')
+        item.connect('activate', self._gedit_run, file, editor_path)
+
+        return [item]
+
+    def get_background_items(self, window, folder):
+        if folder.get_uri_scheme() not in ('file',):
+            return
+
+        if folder.get_location().get_path() == '/':
+            return
+
+        item = Nautilus.MenuItem(name='NautilusAdmin::OpenAdmin',
+                                 label=_(u'Open as _Administrator'),
+                                 tip=_(u'Opens the current folder as an administrator'),
+                                 icon='nautilus-admin')
+        item.connect('activate', self._nautilus_run, folder)
+
+        return [item]
 
     def _nautilus_run(self, menu, file):
         uri = file.get_uri()

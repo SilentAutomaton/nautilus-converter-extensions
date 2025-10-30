@@ -1,3 +1,6 @@
+import gi
+gi.require_version('Nautilus', '3.0')
+gi.require_version('Gtk', '3.0')
 from gi.repository import Nautilus, GObject, Gtk, GLib
 import subprocess
 import os
@@ -19,15 +22,15 @@ class ImageConverterWindow(Gtk.ApplicationWindow):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         vbox.set_margin_top(12)
         vbox.set_margin_bottom(12)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
-        self.set_child(vbox)
+        vbox.set_margin_left(12)
+        vbox.set_margin_right(12)
+        self.add(vbox)
 
         self.label = Gtk.Label(label=_("Converting {0} files to {1}...").format(len(files), format.upper()))
-        vbox.append(self.label)
+        vbox.pack_start(self.label, True, True, 0)
 
         self.progress_bar = Gtk.ProgressBar()
-        vbox.append(self.progress_bar)
+        vbox.pack_start(self.progress_bar, True, True, 0)
 
         self.thread = threading.Thread(target=self.convert_files)
         self.thread.start()
@@ -75,7 +78,7 @@ class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
 
-    def get_file_items(self, files):
+    def get_file_items(self, window, files):
         if not files:
             return []
 
@@ -136,6 +139,6 @@ if __name__ == "__main__":
         app = Gtk.Application(application_id="org.gnome.nautilus.image-converter")
         def on_activate(app):
             win = ImageConverterWindow(files, format, app)
-            win.set_visible(True)
+            win.show_all()
         app.connect('activate', on_activate)
         app.run(None)

@@ -1,3 +1,6 @@
+import gi
+gi.require_version('Nautilus', '3.0')
+gi.require_version('Gtk', '3.0')
 from gi.repository import Nautilus, GObject, Gtk, GLib
 import queue
 import subprocess
@@ -29,7 +32,7 @@ class AudioConverterWindow(Gtk.Window):
 
         header = Gtk.HeaderBar()
         self.set_titlebar(header)
-        header.set_show_title_buttons(True)
+        header.set_show_close_button(True)
 
         self.convert_button = Gtk.Button(label=_("Convert"))
         self.convert_button.get_style_context().add_class("suggested-action")
@@ -38,13 +41,13 @@ class AudioConverterWindow(Gtk.Window):
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         vbox.set_margin_top(12)
         vbox.set_margin_bottom(12)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
-        self.set_child(vbox)
+        vbox.set_margin_left(12)
+        vbox.set_margin_right(12)
+        self.add(vbox)
 
         #  Format and Codec selection 
         grid = Gtk.Grid(column_spacing=10, row_spacing=10)
-        vbox.append(grid)
+        vbox.pack_start(grid, False, False, 0)
 
         label_acodec = Gtk.Label(label=_("Audio Codec:"))
         label_acodec.set_halign(Gtk.Align.START)
@@ -61,18 +64,18 @@ class AudioConverterWindow(Gtk.Window):
 
         #  Progress bar 
         self.progress_bar = Gtk.ProgressBar()
-        vbox.append(self.progress_bar)
+        vbox.pack_start(self.progress_bar, False, False, 0)
 
         #  Progress labels 
         self.label_file_count = Gtk.Label()
-        vbox.append(self.label_file_count)
+        vbox.pack_start(self.label_file_count, False, False, 0)
 
         self.label_timestamps = Gtk.Label()
-        vbox.append(self.label_timestamps)
+        vbox.pack_start(self.label_timestamps, False, False, 0)
 
         self.label_ffmpeg_output = Gtk.Label()
         self.label_ffmpeg_output.set_ellipsize(3) # END
-        vbox.append(self.label_ffmpeg_output)
+        vbox.pack_start(self.label_ffmpeg_output, False, False, 0)
 
         self.connect("destroy", self.on_destroy)
 
@@ -218,7 +221,7 @@ class AudioConverterExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
 
-    def get_file_items(self, files):
+    def get_file_items(self, window, files):
         if not files:
             return []
 
@@ -237,4 +240,4 @@ class AudioConverterExtension(GObject.GObject, Nautilus.MenuProvider):
 
     def show_converter_window(self, menu, files):
         win = AudioConverterWindow(files)
-        win.set_visible(True)
+        win.show_all()
