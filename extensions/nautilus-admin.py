@@ -72,7 +72,7 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
     def _create_nautilus_item(self, file):
         item = Nautilus.MenuItem(
             name="NautilusAdmin::Nautilus",
-            label=_("Open as A_dministrator"),
+            label=_("Open as Administrator"),
             tip=_("Open this folder with root privileges"),
         )
         item.connect("activate", self._nautilus_run, file)
@@ -81,7 +81,7 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
     def _create_gedit_item(self, file, editor_path):
         item = Nautilus.MenuItem(
             name="NautilusAdmin::Gedit",
-            label=_("Edit as A_dministrator"),
+            label=_("Edit as Administrator"),
             tip=_("Open this file in the text editor with root privileges"),
         )
         item.connect("activate", self._gedit_run, file, editor_path)

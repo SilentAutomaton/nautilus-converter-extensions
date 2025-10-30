@@ -1,11 +1,39 @@
 from gi.repository import Nautilus, GObject, Gtk, GLib
-import fcntl, queue, time
+import queue
 import subprocess
 import os
-import threading
-from common import setup_localisation, Popen, time_to_integer
+import shlex
+from common import (
+    setup_localisation,
+    FFmpeg,
+    ffmpeg_cmd_args,
+)
 
 _ = setup_localisation()
+
+def combiner_pass(*args, **kwa):
+    """
+    Command builder for combiner pass.
+    """
+    _ = setup_localisation()
+    cmd = ffmpeg_cmd_args()
+    
+    pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
+    pass1.extend(['-i', kwa["video_file"]])
+    for audio_file in kwa["audio_files"]:
+        pass1.extend(['-i', audio_file])
+    
+    pass1.extend(['-map', '0'])
+    for i in range(len(kwa["audio_files"])):
+        pass1.extend(['-map', f'{i+1}:a'])
+    
+    pass1.extend(['-c', 'copy', kwa["destination"]])
+
+    count1 = (_("Combining video \"{0}\" with {1} audio file(s) ...").format(kwa["video_file"], len(kwa["audio_files"])))
+    stamp1 = f'{count1}\n\n[COMMAND]:\n' + " ".join(shlex.quote(arg) for arg in pass1)
+
+    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+
 
 class CombinerWindow(Gtk.Window):
     def __init__(self, files):
@@ -21,15 +49,19 @@ class CombinerWindow(Gtk.Window):
         vbox.set_margin_end(12)
         self.set_child(vbox)
 
-        self.label = Gtk.Label(label=_("Combining audio and video..."))
-        vbox.append(self.label)
+        self.label_file_count = Gtk.Label()
+        vbox.append(self.label_file_count)
+        
+        self.cancel_button = Gtk.Button(label=_("Cancel"))
+        self.cancel_handler_id = self.cancel_button.connect("clicked", self.on_cancel_clicked)
+        vbox.append(self.cancel_button)
 
-        self.progress_bar = Gtk.ProgressBar()
-        vbox.append(self.progress_bar)
+        self.start_combination()
 
-        self.thread = threading.Thread(target=self.combine_files_thread)
-        self.thread.start()
-        GLib.timeout_add(2000, self.update_progress_from_queue)
+    def on_cancel_clicked(self, widget):
+        if hasattr(self, 'thread') and self.thread.is_alive():
+            self.thread.stop()
+        self.cancel_button.set_sensitive(False)
 
     def get_duration(self, input_path):
         try:
@@ -41,113 +73,97 @@ class CombinerWindow(Gtk.Window):
         except (subprocess.CalledProcessError, ValueError):
             return 0
 
-    def combine_files_thread(self):
+    def start_combination(self):
         video_file = None
-        audio_file = None
+        audio_files = []
 
         for file in self.files:
+            path = file.get_location().get_path()
             if file.get_mime_type().startswith('video/'):
-                video_file = file.get_location().get_path()
+                video_file = path
             elif file.get_mime_type().startswith('audio/'):
-                audio_file = file.get_location().get_path()
+                audio_files.append(path)
 
-        if not video_file or not audio_file:
-            GLib.idle_add(self.update_ui_on_error, _("Please select one video and one audio file."))
+        if not video_file or not audio_files:
+            self.update_count(_("Error: Please select one video and at least one audio file."), 0, 'ERROR')
+            GLib.timeout_add(2000, self.close)
             return
 
-        duration = self.get_duration(video_file) * 1000 # milliseconds
-        video_format = os.path.splitext(video_file)[1][1:]
-        output_path = os.path.splitext(video_file)[0] + f"_combined.{video_format}"
+        duration = self.get_duration(video_file)
+        video_format = os.path.splitext(video_file)[1]
+        output_path = os.path.splitext(video_file)[0] + f"_combined{video_format}"
 
-        try:
-            cmd = ['ffmpeg', '-i', video_file, '-i', audio_file, '-c:v', 'copy', '-c:a', 'aac', '-y', output_path]
-            proc = Popen(cmd, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding='utf-8', universal_newlines=True)
+        kwargs = {
+            'video_file': video_file,
+            'audio_files': audio_files,
+            'destination': output_path,
+            'duration': duration * 1000,
+            'source': video_file, 
+            'start-time': '',
+            'end-time': '',
+            'args': ['', None],
+        }
 
-            fd = proc.stderr.fileno()
-            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+        self.thread = FFmpeg(self, self.progress_queue, [kwargs], cmd_builder=combiner_pass)
+        GLib.timeout_add(100, self.update_progress_from_queue)
 
-            line_buffer = ""
-            while proc.poll() is None:
-                try:
-                    data = proc.stderr.read()
-                    if data:
-                        line_buffer += data
-                        if '\r' in line_buffer or '\n' in line_buffer:
-                            lines = line_buffer.replace('\r', '\n').split('\n')
-                            line_buffer = lines.pop()
-                            for line in lines:
-                                if line:
-                                    self.progress_queue.put({'line': line, 'duration': duration, 'status': 0})
-                except (TypeError, BlockingIOError):
-                    time.sleep(0.05)
-            
-            if proc.returncode != 0:
-                # Handle error
-                pass
-
-        except (OSError, FileNotFoundError) as e:
-            GLib.idle_add(self.update_ui_on_error, str(e))
-            return
-
-        GLib.idle_add(self.progress_bar.set_fraction, 1.0)
-
-    def update_ui_on_error(self, error_message):
-        self.label.set_text(_("Error: {0}").format(error_message))
+    def update_count(self, count, duration, end):
+        if end == 'ERROR':
+            self.label_file_count.set_text(_("Error: {0}").format(count))
+        elif end == 'DONE':
+            self.label_file_count.set_text(_("Done!"))
+        else:
+            self.label_file_count.set_text(count)
 
     def update_output(self, output, duration, status):
-        if 'time=' in output:
-            i = output.index('time=') + 5
-            pos = output[i:].split()[0]
-            msec = time_to_integer(pos)
+        # This is now a no-op, but needs to exist for FFmpeg class callbacks.
+        pass
 
-            if msec > duration:
-                self.progress_bar.set_fraction(1)
-            elif msec > 0:
-                self.progress_bar.set_fraction(msec / duration if duration > 0 else 0)
+    def end_conversion(self, filedone):
+        self.cancel_button.set_label(_("Close"))
+        self.cancel_button.set_sensitive(True)
+        if self.cancel_handler_id > 0:
+            self.cancel_button.disconnect(self.cancel_handler_id)
+            self.cancel_handler_id = 0
+        GLib.timeout_add(1000, self.close)
 
     def update_progress_from_queue(self):
         try:
             while not self.progress_queue.empty():
-                progress_info = self.progress_queue.get_nowait()
-                self.update_output(
-                    progress_info['line'],
-                    progress_info['duration'],
-                    progress_info['status']
-                )
+                self.progress_queue.get_nowait()
         except queue.Empty:
             pass
 
-        if self.thread.is_alive():
+        if hasattr(self, 'thread') and self.thread.is_alive():
             return True # Keep timer running
         else:
-            self.close()
+            # One final drain of the queue
+            try:
+                while not self.progress_queue.empty():
+                    self.progress_queue.get_nowait()
+            except queue.Empty:
+                pass
             return False # Stop timer
+
 
 class VideoAudioCombinerExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
 
     def get_file_items(self, files):
-        if len(files) != 2:
+        if len(files) < 2:
             return []
 
-        video_file_selected = False
-        audio_file_selected = False
+        video_files = [f for f in files if f.get_mime_type().startswith('video/')]
+        audio_files = [f for f in files if f.get_mime_type().startswith('audio/')]
 
-        for file in files:
-            if file.get_mime_type().startswith('video/'):
-                video_file_selected = True
-            elif file.get_mime_type().startswith('audio/'):
-                audio_file_selected = True
-
-        if not (video_file_selected and audio_file_selected):
+        if len(video_files) != 1 or not audio_files:
             return []
 
         item = Nautilus.MenuItem(
             name='VideoAudioCombinerExtension::Combine',
             label=_('Combine Audio/Video'),
-            tip=_('Combines a video file and an audio file')
+            tip=_('Combines a video file and audio files')
         )
         item.connect('activate', self.show_combiner_window, files)
 

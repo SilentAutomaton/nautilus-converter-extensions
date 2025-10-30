@@ -168,6 +168,8 @@ class VideoConverterWindow(Gtk.Window):
         self.label_ffmpeg_output.set_ellipsize(3) # END
         vbox.append(self.label_ffmpeg_output)
 
+        self.connect("destroy", self.on_destroy)
+
         video_infos = []
         for file in self.files:
             video_infos.append(self.get_video_info(file.get_location().get_path()))
@@ -207,6 +209,10 @@ class VideoConverterWindow(Gtk.Window):
             self.check_keep_aspect.set_sensitive(False)
             self.pix_fmt_combo.set_sensitive(False)
             self.entry_bitrate.set_sensitive(False)
+
+    def on_destroy(self, widget):
+        if hasattr(self, 'thread') and self.thread.is_alive():
+            self.thread.stop()
 
     def on_vcodec_changed(self, widget):
         vcodec_str = self.vcodec_combo.get_active_text()
@@ -271,7 +277,7 @@ class VideoConverterWindow(Gtk.Window):
             kwargs_list.append(kwargs)
 
         self.thread = FFmpeg(self, self.progress_queue, kwargs_list)
-        GLib.timeout_add(2000, self.update_progress_from_queue)
+        GLib.timeout_add(100, self.update_progress_from_queue)
 
     def get_duration(self, input_path):
         try:

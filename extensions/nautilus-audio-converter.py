@@ -74,6 +74,12 @@ class AudioConverterWindow(Gtk.Window):
         self.label_ffmpeg_output.set_ellipsize(3) # END
         vbox.append(self.label_ffmpeg_output)
 
+        self.connect("destroy", self.on_destroy)
+
+    def on_destroy(self, widget):
+        if hasattr(self, 'thread') and self.thread.is_alive():
+            self.thread.stop()
+
     def on_convert_clicked(self, widget):
         acodec_str = self.acodec_combo.get_active_text()
         audio_codec = list(self.ACODECS[acodec_str].keys())[0]
@@ -101,7 +107,7 @@ class AudioConverterWindow(Gtk.Window):
             kwargs_list.append(kwargs)
 
         self.thread = FFmpeg(self, self.progress_queue, kwargs_list)
-        GLib.timeout_add(2000, self.update_progress_from_queue)
+        GLib.timeout_add(100, self.update_progress_from_queue)
 
     def get_duration(self, input_path):
         try:

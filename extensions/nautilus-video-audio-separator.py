@@ -1,11 +1,34 @@
 from gi.repository import Nautilus, GObject, Gtk, GLib
-import fcntl, queue, time
+import queue
 import subprocess
 import os
-import threading
-from common import setup_localisation, Popen, time_to_integer
+import json
+import shlex
+from common import (
+    setup_localisation,
+    FFmpeg,
+    ffmpeg_cmd_args,
+)
 
 _ = setup_localisation()
+
+def separator_pass(*args, **kwa):
+    """
+    Command builder for separator pass.
+    """
+    _ = setup_localisation()
+    cmd = ffmpeg_cmd_args()
+    
+    pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
+    pass1.extend(['-i', kwa["source"]])
+    pass1.extend(kwa["args"][0].split())
+    pass1.append(kwa["destination"])
+
+    count1 = (_("File {0}/{1}: {2}").format(args[0], args[1], kwa["task_name"]))
+    stamp1 = f'{count1}\n\n[COMMAND]:\n{" ".join(shlex.quote(arg) for arg in pass1)}'
+
+    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+
 
 class SeparatorWindow(Gtk.Window):
     def __init__(self, files):
@@ -21,15 +44,28 @@ class SeparatorWindow(Gtk.Window):
         vbox.set_margin_end(12)
         self.set_child(vbox)
 
-        self.label = Gtk.Label(label=_("Separating audio and video for selected files..."))
-        vbox.append(self.label)
+        self.label_file_count = Gtk.Label()
+        vbox.append(self.label_file_count)
 
-        self.progress_bar = Gtk.ProgressBar()
-        vbox.append(self.progress_bar)
+        self.cancel_button = Gtk.Button(label=_("Cancel"))
+        self.cancel_handler_id = self.cancel_button.connect("clicked", self.on_cancel_clicked)
+        vbox.append(self.cancel_button)
 
-        self.thread = threading.Thread(target=self.separate_files_thread)
-        self.thread.start()
-        GLib.timeout_add(2000, self.update_progress_from_queue)
+        self.start_separation()
+
+    def on_cancel_clicked(self, widget):
+        if hasattr(self, 'thread') and self.thread.is_alive():
+            self.thread.stop()
+        self.cancel_button.set_sensitive(False)
+
+    def get_stream_info(self, input_path):
+        try:
+            probe_process = subprocess.run([
+                'ffprobe', '-v', 'error', '-show_streams', '-print_format', 'json', input_path
+            ], capture_output=True, text=True, check=True)
+            return json.loads(probe_process.stdout)['streams']
+        except (subprocess.CalledProcessError, ValueError, KeyError):
+            return []
 
     def get_duration(self, input_path):
         try:
@@ -41,98 +77,98 @@ class SeparatorWindow(Gtk.Window):
         except (subprocess.CalledProcessError, ValueError):
             return 0
 
-    def run_ffmpeg_process(self, cmd, duration):
-        try:
-            proc = Popen(cmd, stderr=subprocess.PIPE, stdin=subprocess.PIPE, encoding='utf-8', universal_newlines=True)
-
-            fd = proc.stderr.fileno()
-            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
-            line_buffer = ""
-            while proc.poll() is None:
-                try:
-                    data = proc.stderr.read()
-                    if data:
-                        line_buffer += data
-                        if '\r' in line_buffer or '\n' in line_buffer:
-                            lines = line_buffer.replace('\r', '\n').split('\n')
-                            line_buffer = lines.pop()
-                            for line in lines:
-                                if line:
-                                    self.progress_queue.put({'line': line, 'duration': duration, 'status': 0})
-                except (TypeError, BlockingIOError):
-                    time.sleep(0.05)
-            
-            if proc.returncode != 0:
-                # Handle error
-                pass
-
-        except (OSError, FileNotFoundError) as e:
-            GLib.idle_add(self.update_ui_on_error, str(e))
-
-    def separate_files_thread(self):
-        for i, file in enumerate(self.files):
+    def start_separation(self):
+        tasks = []
+        for file in self.files:
             input_path = file.get_location().get_path()
-            base_path, _ = os.path.splitext(input_path)
-            video_format = os.path.splitext(input_path)[1][1:]
-            duration = self.get_duration(input_path) * 1000 # milliseconds
+            base_path, ext = os.path.splitext(input_path)
+            duration = self.get_duration(input_path)
 
-            try:
-                audio_format_process = subprocess.run([
-                    'ffprobe', '-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name',
-                    '-of', 'default=noprint_wrappers=1:nokey=1', input_path
-                ], capture_output=True, text=True, check=True)
-                audio_format = audio_format_process.stdout.strip()
+            streams = self.get_stream_info(input_path)
+            audio_streams = [s for s in streams if s['codec_type'] == 'audio']
 
-            except (subprocess.CalledProcessError, ValueError):
-                GLib.idle_add(self.update_ui_on_error, _("Failed to get stream information."))
-                return
+            # Video task
+            video_output_path = f"{base_path}_video{ext}"
+            video_args = ['-vcodec', 'copy', '-an']
+            tasks.append({
+                'source': input_path,
+                'destination': video_output_path,
+                'duration': duration * 1000,
+                'args': [' '.join(video_args), None],
+                'task_name': _("Separating video track"),
+                'start-time': '',
+                'end-time': '',
+            })
 
-            video_output_path = f"{base_path}_video.{video_format}"
-            audio_output_path = f"{base_path}_audio.{audio_format}"
+            # Audio tasks
+            for i, audio_stream in enumerate(audio_streams):
+                audio_index = audio_stream['index']
+                try:
+                    audio_format = subprocess.run([
+                        'ffprobe', '-v', 'error', '-select_streams', f'a:{i}', '-show_entries', 'stream=codec_name',
+                        '-of', 'default=noprint_wrappers=1:nokey=1', input_path
+                    ], capture_output=True, text=True, check=True).stdout.strip()
+                except (subprocess.CalledProcessError, ValueError):
+                    audio_format = 'aac' # fallback
+                
+                audio_output_path = f"{base_path}_audio_{i}.{audio_format}"
+                audio_args = ['-map', f'0:{audio_index}', '-acodec', 'copy']
+                tasks.append({
+                    'source': input_path,
+                    'destination': audio_output_path,
+                    'duration': duration * 1000,
+                    'args': [' '.join(audio_args), None],
+                    'task_name': _("Separating audio track {0}").format(i + 1),
+                    'start-time': '',
+                    'end-time': '',
+                })
+        
+        if not tasks:
+            self.update_count(_("Error: No streams found to separate."), 0, 'ERROR')
+            GLib.timeout_add(2000, self.close)
+            return
 
-            # Separate video
-            self.run_ffmpeg_process(['ffmpeg', '-i', input_path, '-vcodec', 'copy', '-an', '-y', video_output_path], duration)
-            
-            # Separate audio
-            self.run_ffmpeg_process(['ffmpeg', '-i', input_path, '-acodec', 'copy', '-vn', '-y', audio_output_path], duration)
+        self.thread = FFmpeg(self, self.progress_queue, tasks, cmd_builder=separator_pass)
+        GLib.timeout_add(100, self.update_progress_from_queue)
 
-            fraction = (i + 1) / len(self.files)
-            GLib.idle_add(self.progress_bar.set_fraction, fraction)
-
-        GLib.idle_add(self.close)
-
-    def update_ui_on_error(self, error_message):
-        self.label.set_text(_("Error: {0}").format(error_message))
+    def update_count(self, count, duration, end):
+        if end == 'ERROR':
+            self.label_file_count.set_text(_("Error: {0}").format(count))
+        elif end == 'DONE':
+            self.label_file_count.set_text(_("Done!"))
+        else:
+            self.label_file_count.set_text(count)
 
     def update_output(self, output, duration, status):
-        if 'time=' in output:
-            i = output.index('time=') + 5
-            pos = output[i:].split()[0]
-            msec = time_to_integer(pos)
+        # This is now a no-op, but needs to exist for FFmpeg class callbacks.
+        pass
 
-            if msec > duration:
-                self.progress_bar.set_fraction(1)
-            elif msec > 0:
-                self.progress_bar.set_fraction(msec / duration if duration > 0 else 0)
+    def end_conversion(self, filedone):
+        self.cancel_button.set_label(_("Close"))
+        self.cancel_button.set_sensitive(True)
+        if self.cancel_handler_id > 0:
+            self.cancel_button.disconnect(self.cancel_handler_id)
+            self.cancel_handler_id = 0
+        GLib.timeout_add(1000, self.close)
 
     def update_progress_from_queue(self):
         try:
             while not self.progress_queue.empty():
-                progress_info = self.progress_queue.get_nowait()
-                self.update_output(
-                    progress_info['line'],
-                    progress_info['duration'],
-                    progress_info['status']
-                )
+                self.progress_queue.get_nowait()
         except queue.Empty:
             pass
 
-        if self.thread.is_alive():
+        if hasattr(self, 'thread') and self.thread.is_alive():
             return True # Keep timer running
         else:
+            # One final drain of the queue
+            try:
+                while not self.progress_queue.empty():
+                    self.progress_queue.get_nowait()
+            except queue.Empty:
+                pass
             return False # Stop timer
+
 
 class VideoAudioSeparatorExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):

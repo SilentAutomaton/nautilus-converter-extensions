@@ -121,7 +121,7 @@ def simple_one_pass(*args, **kwa):
 
 class FFmpeg(threading.Thread):
 
-    def __init__(self, window, progress_queue, *args):
+    def __init__(self, window, progress_queue, *args, cmd_builder=simple_one_pass):
         """
         Called from `AudioConverterWindow`.
         """
@@ -131,6 +131,7 @@ class FFmpeg(threading.Thread):
         self.kwargs = args[0]
         self.nargs = len(self.kwargs)
         self.count = 0
+        self.cmd_builder = cmd_builder
 
         threading.Thread.__init__(self)
         self.start()
@@ -142,7 +143,7 @@ class FFmpeg(threading.Thread):
         filedone = []
         for kwa in self.kwargs:
             self.count += 1
-            model = simple_one_pass(self.count, self.nargs, **kwa)
+            model = self.cmd_builder(self.count, self.nargs, **kwa)
 
             GLib.idle_add(self.window.update_count, model['count1'], kwa['duration'], 'CONTINUE')
 
@@ -173,13 +174,20 @@ class FFmpeg(threading.Thread):
                         time.sleep(0.05)
 
                     if self.stop_work_thread:
-                        proc1.stdin.write('q')
-                        proc1.wait()
+                        proc1.terminate()
+                        try:
+                            proc1.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            proc1.kill()
                         GLib.idle_add(self.window.update_output, 'STOP', kwa['duration'], 1)
                         time.sleep(.5)
                         GLib.idle_add(self.window.end_conversion, None)
                         return
                 
+                if self.stop_work_thread:
+                    GLib.idle_add(self.window.end_conversion, None)
+                    return
+
                 if line_buffer:
                     self.progress_queue.put({'line': line_buffer, 'duration': kwa['duration'], 'status': 0})
 
