@@ -13,7 +13,20 @@ from common import (
     FFmpeg
 )
 
-_ = setup_localisation()
+import gi
+gi.require_version('Nautilus', '3.0')
+gi.require_version('Gtk', '3.0')
+from gi.repository import Nautilus, GObject, Gtk, GLib
+import queue
+import subprocess
+import os
+from common import (
+    setup_localisation,
+    time_to_integer,
+    integer_to_time,
+    pairwise,
+    FFmpeg
+)
 
 class AudioConverterWindow(Gtk.Window):
     ACODECS = {
@@ -24,8 +37,9 @@ class AudioConverterWindow(Gtk.Window):
         "Copy": {"-c:a copy": ["mka", "mp3", "ogg", "wav", "flac"]} 
     }
 
-    def __init__(self, files):
-        super().__init__(title=_("Audio Converter"))
+    def __init__(self, files, trans):
+        self._ = trans
+        super().__init__(title=self._("Audio Converter"))
         self.progress_queue = queue.Queue()
         self.files = files
         self.set_default_size(500, 400)
@@ -34,7 +48,7 @@ class AudioConverterWindow(Gtk.Window):
         self.set_titlebar(header)
         header.set_show_close_button(True)
 
-        self.convert_button = Gtk.Button(label=_("Convert"))
+        self.convert_button = Gtk.Button(label=self._("Convert"))
         self.convert_button.get_style_context().add_class("suggested-action")
         header.pack_start(self.convert_button)
 
@@ -49,7 +63,7 @@ class AudioConverterWindow(Gtk.Window):
         grid = Gtk.Grid(column_spacing=10, row_spacing=10)
         vbox.pack_start(grid, False, False, 0)
 
-        label_acodec = Gtk.Label(label=_("Audio Codec:"))
+        label_acodec = Gtk.Label(label=self._("Audio Codec:"))
         label_acodec.set_halign(Gtk.Align.START)
         grid.attach(label_acodec, 0, 0, 1, 1)
 
@@ -109,7 +123,7 @@ class AudioConverterWindow(Gtk.Window):
             }
             kwargs_list.append(kwargs)
 
-        self.thread = FFmpeg(self, self.progress_queue, kwargs_list)
+        self.thread = FFmpeg(self, self.progress_queue, kwargs_list, trans=self._)
         GLib.timeout_add(100, self.update_progress_from_queue)
 
     def get_duration(self, input_path):
@@ -124,12 +138,12 @@ class AudioConverterWindow(Gtk.Window):
 
     def update_count(self, count, duration, end):
         if end == 'ERROR':
-            self.label_file_count.set_text(_("Error: {0}").format(count))
+            self.label_file_count.set_text(self._("Error: {0}").format(count))
         elif end == 'DONE':
-            self.label_file_count.set_text(_("Done!"))
+            self.label_file_count.set_text(self._("Done!"))
             self.progress_bar.set_fraction(1)
             newlab = self.label_timestamps.get_label().split()
-            if _('Processing:') in newlab:
+            if self._('Processing:') in newlab:
                 newlab[1] = '100%'
             if 'ETA:' in newlab:
                 newlab[3] = '00:00:00'
@@ -143,9 +157,9 @@ class AudioConverterWindow(Gtk.Window):
     def update_output(self, output, duration, status):
         if status != 0:
             if output == 'STOP':
-                self.label_ffmpeg_output.set_text(_("Conversion stopped."))
+                self.label_ffmpeg_output.set_text(self._("Conversion stopped."))
             else:
-                self.label_ffmpeg_output.set_text(_("Conversion failed."))
+                self.label_ffmpeg_output.set_text(self._("Conversion failed."))
             return
 
         if 'time=' in output:
@@ -180,7 +194,7 @@ class AudioConverterWindow(Gtk.Window):
             else:
                 eta = "ETA: N/A"
 
-            self.label_timestamps.set_text(_('Processing: {0}% {1}').format(str(int(percentage)), eta))
+            self.label_timestamps.set_text(self._('Processing: {0}% {1}').format(str(int(percentage)), eta))
             self.label_ffmpeg_output.set_text(' | '.join(ffprog))
         else:
             print(output, end="")
@@ -220,8 +234,10 @@ class AudioConverterWindow(Gtk.Window):
 class AudioConverterExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
+        self._ = setup_localisation()
 
     def get_file_items(self, window, files):
+        self._ = setup_localisation()
         if not files:
             return []
 
@@ -231,13 +247,13 @@ class AudioConverterExtension(GObject.GObject, Nautilus.MenuProvider):
 
         item = Nautilus.MenuItem(
             name='AudioConverterExtension::Convert',
-            label=_('Convert to'),
-            tip=_('Converts selected audio(s) to a different format')
+            label=self._('Convert to'),
+            tip=self._('Converts selected audio(s) to a different format')
         )
         item.connect('activate', self.show_converter_window, files)
 
         return [item]
 
     def show_converter_window(self, menu, files):
-        win = AudioConverterWindow(files)
+        win = AudioConverterWindow(files, self._)
         win.show_all()

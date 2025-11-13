@@ -8,11 +8,20 @@ import sys
 import threading
 from common import setup_localisation, Popen
 
-_ = setup_localisation()
+import gi
+gi.require_version('Nautilus', '3.0')
+gi.require_version('Gtk', '3.0')
+from gi.repository import Nautilus, GObject, Gtk, GLib
+import subprocess
+import os
+import sys
+import threading
+from common import setup_localisation, Popen
 
 class ImageConverterWindow(Gtk.ApplicationWindow):
-    def __init__(self, files, format, app):
-        super().__init__(title=_("Image Converter"), application=app)
+    def __init__(self, files, format, app, trans):
+        self._ = trans
+        super().__init__(title=self._("Image Converter"), application=app)
         self.files = files
         self.format = format
         self.set_default_size(400, 100)
@@ -26,7 +35,7 @@ class ImageConverterWindow(Gtk.ApplicationWindow):
         vbox.set_margin_right(12)
         self.add(vbox)
 
-        self.label = Gtk.Label(label=_("Converting {0} files to {1}...").format(len(files), format.upper()))
+        self.label = Gtk.Label(label=self._("Converting {0} files to {1}...").format(len(files), format.upper()))
         vbox.pack_start(self.label, True, True, 0)
 
         self.progress_bar = Gtk.ProgressBar()
@@ -72,13 +81,15 @@ class ImageConverterWindow(Gtk.ApplicationWindow):
         GLib.idle_add(self.close)
 
     def update_ui_on_error(self, error_message):
-        self.label.set_text(_("Error: {0}").format(error_message))
+        self.label.set_text(self._("Error: {0}").format(error_message))
 
 class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
+        self._ = setup_localisation()
 
     def get_file_items(self, window, files):
+        self._ = setup_localisation()
         if not files:
             return []
 
@@ -90,8 +101,8 @@ class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
         
         item = Nautilus.MenuItem(
             name='ImageConverterExtension::Convert',
-            label=_('Convert to'),
-            tip=_('Converts selected image(s) to a different format')
+            label=self._('Convert to'),
+            tip=self._('Converts selected image(s) to a different format')
         )
         item.set_submenu(submenu)
 
@@ -123,7 +134,7 @@ class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
         item = Nautilus.MenuItem(
             name=f'ImageConverterExtension::Convert::{format}',
             label=format,
-            tip=_('Convert to {0}').format(format)
+            tip=self._('Convert to {0}').format(format)
         )
         item.connect('activate', self.run_converter, files, format.lower())
         submenu.append_item(item)
@@ -133,12 +144,13 @@ class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
         subprocess.Popen([sys.executable, __file__, format] + file_paths)
 
 if __name__ == "__main__":
+    _ = setup_localisation()
     if len(sys.argv) > 2:
         format = sys.argv[1]
         files = sys.argv[2:]
         app = Gtk.Application(application_id="org.gnome.nautilus.image-converter")
         def on_activate(app):
-            win = ImageConverterWindow(files, format, app)
+            win = ImageConverterWindow(files, format, app, _)
             win.show_all()
         app.connect('activate', on_activate)
         app.run(None)

@@ -3,7 +3,10 @@ import subprocess
 from gi.repository import Nautilus, GObject
 from common import setup_localisation
 
-_ = setup_localisation()
+import os
+import subprocess
+from gi.repository import Nautilus, GObject
+from common import setup_localisation
 
 ROOT_UID = 0
 NAUTILUS_PATH = "/usr/bin/nautilus"
@@ -12,7 +15,7 @@ TEXT_EDITOR_PATHS = ["/usr/bin/gnome-text-editor", "/usr/bin/gedit"]
 
 class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
-        pass
+        self._ = setup_localisation()
 
     def _is_root(self):
         """
@@ -35,6 +38,7 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
         return None
 
     def get_file_items(self, window, files):
+        self._ = setup_localisation()
         if not files:
             return
 
@@ -59,14 +63,15 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
             return
 
         item = Nautilus.MenuItem(name='NautilusAdmin::EditAdmin',
-                                 label=_(u'_Edit as Administrator'),
-                                 tip=_(u'Edits the current file as an administrator'),
+                                 label=self._(u'_Edit as Administrator'),
+                                 tip=self._(u'Edits the current file as an administrator'),
                                  icon='nautilus-admin')
         item.connect('activate', self._gedit_run, file, editor_path)
 
         return [item]
 
     def get_background_items(self, window, folder):
+        self._ = setup_localisation()
         if folder.get_uri_scheme() not in ('file',):
             return
 
@@ -74,8 +79,8 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
             return
 
         item = Nautilus.MenuItem(name='NautilusAdmin::OpenAdmin',
-                                 label=_(u'Open as _Administrator'),
-                                 tip=_(u'Opens the current folder as an administrator'),
+                                 label=self._(u'Open as _Administrator'),
+                                 tip=self._(u'Opens the current folder as an administrator'),
                                  icon='nautilus-admin')
         item.connect('activate', self._nautilus_run, folder)
 
@@ -90,3 +95,4 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
         uri = file.get_uri()
         admin_uri = uri.replace("file://", "admin://")
         subprocess.Popen([editor_path, admin_uri])
+

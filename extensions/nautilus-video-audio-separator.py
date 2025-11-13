@@ -13,13 +13,26 @@ from common import (
     ffmpeg_cmd_args,
 )
 
-_ = setup_localisation()
+import gi
+gi.require_version('Nautilus', '3.0')
+gi.require_version('Gtk', '3.0')
+from gi.repository import Nautilus, GObject, Gtk, GLib
+import queue
+import subprocess
+import os
+import json
+import shlex
+from common import (
+    setup_localisation,
+    FFmpeg,
+    ffmpeg_cmd_args,
+)
 
-def separator_pass(*args, **kwa):
+def separator_pass(*args, trans, **kwa):
     """
     Command builder for separator pass.
     """
-    _ = setup_localisation()
+    _ = trans
     cmd = ffmpeg_cmd_args()
     
     pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
@@ -34,8 +47,9 @@ def separator_pass(*args, **kwa):
 
 
 class SeparatorWindow(Gtk.Window):
-    def __init__(self, files):
-        super().__init__(title=_("Separating Audio/Video"))
+    def __init__(self, files, trans):
+        self._ = trans
+        super().__init__(title=self._("Separating Audio/Video"))
         self.progress_queue = queue.Queue()
         self.files = files
         self.set_default_size(400, 100)
@@ -50,7 +64,7 @@ class SeparatorWindow(Gtk.Window):
         self.label_file_count = Gtk.Label()
         vbox.pack_start(self.label_file_count, True, True, 0)
 
-        self.cancel_button = Gtk.Button(label=_("Cancel"))
+        self.cancel_button = Gtk.Button(label=self._("Cancel"))
         self.cancel_handler_id = self.cancel_button.connect("clicked", self.on_cancel_clicked)
         vbox.pack_start(self.cancel_button, True, True, 0)
 
@@ -98,7 +112,7 @@ class SeparatorWindow(Gtk.Window):
                 'destination': video_output_path,
                 'duration': duration * 1000,
                 'args': [' '.join(video_args), None],
-                'task_name': _("Separating video track"),
+                'task_name': self._("Separating video track"),
                 'start-time': '',
                 'end-time': '',
             })
@@ -121,24 +135,24 @@ class SeparatorWindow(Gtk.Window):
                     'destination': audio_output_path,
                     'duration': duration * 1000,
                     'args': [' '.join(audio_args), None],
-                    'task_name': _("Separating audio track {0}").format(i + 1),
+                    'task_name': self._("Separating audio track {0}").format(i + 1),
                     'start-time': '',
                     'end-time': '',
                 })
         
         if not tasks:
-            self.update_count(_("Error: No streams found to separate."), 0, 'ERROR')
+            self.update_count(self._("Error: No streams found to separate."), 0, 'ERROR')
             GLib.timeout_add(2000, self.close)
             return
 
-        self.thread = FFmpeg(self, self.progress_queue, tasks, cmd_builder=separator_pass)
+        self.thread = FFmpeg(self, self.progress_queue, tasks, cmd_builder=separator_pass, trans=self._)
         GLib.timeout_add(100, self.update_progress_from_queue)
 
     def update_count(self, count, duration, end):
         if end == 'ERROR':
-            self.label_file_count.set_text(_("Error: {0}").format(count))
+            self.label_file_count.set_text(self._("Error: {0}").format(count))
         elif end == 'DONE':
-            self.label_file_count.set_text(_("Done!"))
+            self.label_file_count.set_text(self._("Done!"))
         else:
             self.label_file_count.set_text(count)
 
@@ -147,7 +161,7 @@ class SeparatorWindow(Gtk.Window):
         pass
 
     def end_conversion(self, filedone):
-        self.cancel_button.set_label(_("Close"))
+        self.cancel_button.set_label(self._("Close"))
         self.cancel_button.set_sensitive(True)
         if self.cancel_handler_id > 0:
             self.cancel_button.disconnect(self.cancel_handler_id)
@@ -176,8 +190,10 @@ class SeparatorWindow(Gtk.Window):
 class VideoAudioSeparatorExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
+        self._ = setup_localisation()
 
     def get_file_items(self, window, files):
+        self._ = setup_localisation()
         if not files:
             return []
 
@@ -187,13 +203,13 @@ class VideoAudioSeparatorExtension(GObject.GObject, Nautilus.MenuProvider):
 
         item = Nautilus.MenuItem(
             name='VideoAudioSeparatorExtension::Separate',
-            label=_('Separate Audio/Video'),
-            tip=_('Separates audio and video from selected video file(s)')
+            label=self._('Separate Audio/Video'),
+            tip=self._('Separates audio and video from selected video file(s)')
         )
         item.connect('activate', self.show_separator_window, files)
 
         return [item]
 
     def show_separator_window(self, menu, files):
-        win = SeparatorWindow(files)
+        win = SeparatorWindow(files, self._)
         win.show_all()

@@ -13,8 +13,6 @@ from common import (
     FFmpeg
 )
 
-_ = setup_localisation()
-
 class VideoConverterWindow(Gtk.Window):
     VCODECS = {
         "MPEG-4": {"-c:v mpeg4": ["avi"]},
@@ -30,8 +28,9 @@ class VideoConverterWindow(Gtk.Window):
         "Copy": {"-c:v copy": ["mkv", "mp4", "avi", "m4v", "webm", "Copy"]} 
     }
 
-    def __init__(self, files):
-        super().__init__(title=_("Video Converter"))
+    def __init__(self, files, trans):
+        self._ = trans
+        super().__init__(title=self._("Video Converter"))
         self.progress_queue = queue.Queue()
         self.files = files
         self.set_default_size(500, 400)
@@ -40,7 +39,7 @@ class VideoConverterWindow(Gtk.Window):
         self.set_titlebar(header)
         header.set_show_close_button(True)
 
-        self.convert_button = Gtk.Button(label=_("Convert"))
+        self.convert_button = Gtk.Button(label=self._("Convert"))
         self.convert_button.get_style_context().add_class("suggested-action")
         header.pack_start(self.convert_button)
 
@@ -55,7 +54,7 @@ class VideoConverterWindow(Gtk.Window):
         grid = Gtk.Grid(column_spacing=10, row_spacing=10)
         vbox.pack_start(grid, False, False, 0)
 
-        label_vcodec = Gtk.Label(label=_("Video Codec:"))
+        label_vcodec = Gtk.Label(label=self._("Video Codec:"))
         label_vcodec.set_halign(Gtk.Align.START)
         grid.attach(label_vcodec, 0, 0, 1, 1)
 
@@ -66,7 +65,7 @@ class VideoConverterWindow(Gtk.Window):
         self.vcodec_combo.connect("changed", self.on_vcodec_changed)
         grid.attach(self.vcodec_combo, 1, 0, 1, 1)
 
-        label_format = Gtk.Label(label=_("Container:"))
+        label_format = Gtk.Label(label=self._("Container:"))
         label_format.set_halign(Gtk.Align.START)
         grid.attach(label_format, 0, 1, 1, 1)
 
@@ -79,27 +78,28 @@ class VideoConverterWindow(Gtk.Window):
         advanced_box.set_halign(Gtk.Align.START)
         vbox.pack_start(advanced_box, False, False, 0)
 
-        label_advanced = Gtk.Label(label=_("Advanced Options"))
+        label_advanced = Gtk.Label(label=self._("Advanced Options"))
         advanced_box.pack_start(label_advanced, False, False, 0)
 
         self.advanced_switch = Gtk.Switch()
+        self.advanced_switch.set_active(False)
         self.advanced_switch.connect("notify::active", self.on_advanced_toggled)
         advanced_box.pack_start(self.advanced_switch, False, False, 0)
 
-        self.advanced_frame = Gtk.Frame()
-        self.advanced_frame.set_visible(False)
-        vbox.pack_start(self.advanced_frame, False, False, 0)
+        self.revealer = Gtk.Revealer()
+        self.revealer.set_reveal_child(False)
+        vbox.pack_start(self.revealer, False, False, 0)
 
         self.advanced_grid = Gtk.Grid(column_spacing=10, row_spacing=10)
         self.advanced_grid.set_margin_top(12)
         self.advanced_grid.set_margin_bottom(12)
         self.advanced_grid.set_margin_start(12)
         self.advanced_grid.set_margin_end(12)
-        self.advanced_frame.add(self.advanced_grid)
+        self.revealer.add(self.advanced_grid)
 
         # Advanced options widgets 
         # CRF
-        label_crf = Gtk.Label(label=_("CRF:"))
+        label_crf = Gtk.Label(label=self._("CRF:"))
         label_crf.set_halign(Gtk.Align.START)
         self.scale_crf = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 51, 1)
         self.scale_crf.set_value(23)
@@ -108,7 +108,7 @@ class VideoConverterWindow(Gtk.Window):
         self.advanced_grid.attach(self.scale_crf, 1, 0, 1, 1)
 
         # Preset
-        label_preset = Gtk.Label(label=_("Preset:"))
+        label_preset = Gtk.Label(label=self._("Preset:"))
         label_preset.set_halign(Gtk.Align.START)
         self.preset_combo = Gtk.ComboBoxText()
         presets = ["ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow"]
@@ -119,7 +119,7 @@ class VideoConverterWindow(Gtk.Window):
         self.advanced_grid.attach(self.preset_combo, 1, 1, 1, 1)
 
         # Pixel Format
-        label_pix_fmt = Gtk.Label(label=_("Pixel Format:"))
+        label_pix_fmt = Gtk.Label(label=self._("Pixel Format:"))
         label_pix_fmt.set_halign(Gtk.Align.START)
         self.pix_fmt_combo = Gtk.ComboBoxText()
         pix_fmts = ["yuv420p", "yuv422p", "yuv444p", "yuvj420p", "yuvj422p", "yuvj444p"]
@@ -130,11 +130,11 @@ class VideoConverterWindow(Gtk.Window):
         self.advanced_grid.attach(self.pix_fmt_combo, 1, 2, 1, 1)
 
         # Resolution
-        label_resolution = Gtk.Label(label=_("Resolution:"))
+        label_resolution = Gtk.Label(label=self._("Resolution:"))
         label_resolution.set_halign(Gtk.Align.START)
         self.entry_width = Gtk.Entry()
         self.entry_height = Gtk.Entry()
-        self.check_keep_aspect = Gtk.CheckButton(label=_("Keep Aspect Ratio"))
+        self.check_keep_aspect = Gtk.CheckButton(label=self._("Keep Aspect Ratio"))
         self.check_keep_aspect.set_active(True)
 
         resolution_box = Gtk.Box(spacing=6)
@@ -147,7 +147,7 @@ class VideoConverterWindow(Gtk.Window):
         self.advanced_grid.attach(resolution_box, 1, 3, 1, 1)
 
         # Bitrate
-        label_bitrate = Gtk.Label(label=_("Bitrate (kbps):"))
+        label_bitrate = Gtk.Label(label=self._("Bitrate (kbps):"))
         label_bitrate.set_halign(Gtk.Align.START)
         self.entry_bitrate = Gtk.Entry()
         self.advanced_grid.attach(label_bitrate, 0, 4, 1, 1)
@@ -226,7 +226,7 @@ class VideoConverterWindow(Gtk.Window):
         self.format_combo.set_active(0)
 
     def on_advanced_toggled(self, widget, _):
-        self.advanced_frame.set_visible(widget.get_active())
+        self.revealer.set_reveal_child(widget.get_active())
 
     def on_convert_clicked(self, widget):
         vcodec_str = self.vcodec_combo.get_active_text()
@@ -279,7 +279,7 @@ class VideoConverterWindow(Gtk.Window):
             }
             kwargs_list.append(kwargs)
 
-        self.thread = FFmpeg(self, self.progress_queue, kwargs_list)
+        self.thread = FFmpeg(self, self.progress_queue, kwargs_list, trans=self._)
         GLib.timeout_add(100, self.update_progress_from_queue)
 
     def get_duration(self, input_path):
@@ -330,9 +330,9 @@ class VideoConverterWindow(Gtk.Window):
 
     def update_count(self, count, duration, end):
         if end == 'ERROR':
-            self.label_file_count.set_text(_("Error: {0}").format(count))
+            self.label_file_count.set_text(self._("Error: {0}").format(count))
         elif end == 'DONE':
-            self.label_file_count.set_text(_("Done!"))
+            self.label_file_count.set_text(self._("Done!"))
             self.progress_bar.set_fraction(1)
             newlab = self.label_timestamps.get_label().split()
             if 'Processing:' in newlab:
@@ -349,9 +349,9 @@ class VideoConverterWindow(Gtk.Window):
     def update_output(self, output, duration, status):
         if status != 0:
             if output == 'STOP':
-                self.label_ffmpeg_output.set_text(_("Conversion stopped."))
+                self.label_ffmpeg_output.set_text(self._("Conversion stopped."))
             else:
-                self.label_ffmpeg_output.set_text(_("Conversion failed."))
+                self.label_ffmpeg_output.set_text(self._("Conversion failed."))
             return
 
         if 'time=' in output:
@@ -386,7 +386,7 @@ class VideoConverterWindow(Gtk.Window):
             else:
                 eta = "ETA: N/A"
 
-            self.label_timestamps.set_text(_('Processing: {0}% {1}').format(str(int(percentage)), eta))
+            self.label_timestamps.set_text(self._('Processing: {0}% {1}').format(str(int(percentage)), eta))
             self.label_ffmpeg_output.set_text(' | '.join(ffprog))
         else:
             print(output, end="")
@@ -427,8 +427,10 @@ class VideoConverterWindow(Gtk.Window):
 class VideoConverterExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
+        self._ = setup_localisation()
 
     def get_file_items(self, window, files):
+        self._ = setup_localisation()
         if not files:
             return []
 
@@ -438,13 +440,13 @@ class VideoConverterExtension(GObject.GObject, Nautilus.MenuProvider):
 
         item = Nautilus.MenuItem(
             name='VideoConverterExtension::Convert',
-            label=_('Convert to'),
-            tip=_('Converts selected video(s) to a different format')
+            label=self._('Convert to'),
+            tip=self._('Converts selected video(s) to a different format')
         )
         item.connect('activate', self.show_converter_window, files)
 
         return [item]
 
     def show_converter_window(self, menu, files):
-        win = VideoConverterWindow(files)
+        win = VideoConverterWindow(files, self._)
         win.show_all()

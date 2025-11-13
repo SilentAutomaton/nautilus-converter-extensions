@@ -22,6 +22,8 @@ def setup_localisation():
     gettext.textdomain(APP_NAME)
     return gettext.gettext
 
+
+
 def time_to_integer(timef: str = '0', sec=False, rnd=False) -> int:
     """
     Converts strings representing the 24-hour format to an
@@ -97,11 +99,11 @@ def ffmpeg_cmd_args():
     return {"ffmpeg_cmd": cmd,
             "ffmpeg-default-args": "-y -stats -hide_banner -loglevel info"}
 
-def simple_one_pass(*args, **kwa):
+def simple_one_pass(*args, trans, **kwa):
     """
     Command builder for one pass
     """
-    _ = setup_localisation()
+    _ = trans
     cmd = ffmpeg_cmd_args()
     pass1 = (cmd["ffmpeg_cmd"] +
              cmd["ffmpeg-default-args"].split() +
@@ -121,7 +123,7 @@ def simple_one_pass(*args, **kwa):
 
 class FFmpeg(threading.Thread):
 
-    def __init__(self, window, progress_queue, *args, cmd_builder=simple_one_pass):
+    def __init__(self, window, progress_queue, *args, cmd_builder=simple_one_pass, trans):
         """
         Called from `AudioConverterWindow`.
         """
@@ -132,6 +134,7 @@ class FFmpeg(threading.Thread):
         self.nargs = len(self.kwargs)
         self.count = 0
         self.cmd_builder = cmd_builder
+        self._ = trans
 
         threading.Thread.__init__(self)
         self.start()
@@ -143,7 +146,7 @@ class FFmpeg(threading.Thread):
         filedone = []
         for kwa in self.kwargs:
             self.count += 1
-            model = self.cmd_builder(self.count, self.nargs, **kwa)
+            model = self.cmd_builder(self.count, self.nargs, trans=self._, **kwa)
 
             GLib.idle_add(self.window.update_count, model['count1'], kwa['duration'], 'CONTINUE')
 

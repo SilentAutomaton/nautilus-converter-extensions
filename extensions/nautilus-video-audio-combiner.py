@@ -12,13 +12,25 @@ from common import (
     ffmpeg_cmd_args,
 )
 
-_ = setup_localisation()
+import gi
+gi.require_version('Nautilus', '3.0')
+gi.require_version('Gtk', '3.0')
+from gi.repository import Nautilus, GObject, Gtk, GLib
+import queue
+import subprocess
+import os
+import shlex
+from common import (
+    setup_localisation,
+    FFmpeg,
+    ffmpeg_cmd_args,
+)
 
-def combiner_pass(*args, **kwa):
+def combiner_pass(*args, trans, **kwa):
     """
     Command builder for combiner pass.
     """
-    _ = setup_localisation()
+    _ = trans
     cmd = ffmpeg_cmd_args()
     
     pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
@@ -39,8 +51,9 @@ def combiner_pass(*args, **kwa):
 
 
 class CombinerWindow(Gtk.Window):
-    def __init__(self, files):
-        super().__init__(title=_("Combining Audio/Video"))
+    def __init__(self, files, trans):
+        self._ = trans
+        super().__init__(title=self._("Combining Audio/Video"))
         self.progress_queue = queue.Queue()
         self.files = files
         self.set_default_size(400, 100)
@@ -55,7 +68,7 @@ class CombinerWindow(Gtk.Window):
         self.label_file_count = Gtk.Label()
         vbox.pack_start(self.label_file_count, True, True, 0)
         
-        self.cancel_button = Gtk.Button(label=_("Cancel"))
+        self.cancel_button = Gtk.Button(label=self._("Cancel"))
         self.cancel_handler_id = self.cancel_button.connect("clicked", self.on_cancel_clicked)
         vbox.pack_start(self.cancel_button, True, True, 0)
 
@@ -88,7 +101,7 @@ class CombinerWindow(Gtk.Window):
                 audio_files.append(path)
 
         if not video_file or not audio_files:
-            self.update_count(_("Error: Please select one video and at least one audio file."), 0, 'ERROR')
+            self.update_count(self._("Error: Please select one video and at least one audio file."), 0, 'ERROR')
             GLib.timeout_add(2000, self.close)
             return
 
@@ -107,14 +120,14 @@ class CombinerWindow(Gtk.Window):
             'args': ['', None],
         }
 
-        self.thread = FFmpeg(self, self.progress_queue, [kwargs], cmd_builder=combiner_pass)
+        self.thread = FFmpeg(self, self.progress_queue, [kwargs], cmd_builder=combiner_pass, trans=self._)
         GLib.timeout_add(100, self.update_progress_from_queue)
 
     def update_count(self, count, duration, end):
         if end == 'ERROR':
-            self.label_file_count.set_text(_("Error: {0}").format(count))
+            self.label_file_count.set_text(self._("Error: {0}").format(count))
         elif end == 'DONE':
-            self.label_file_count.set_text(_("Done!"))
+            self.label_file_count.set_text(self._("Done!"))
         else:
             self.label_file_count.set_text(count)
 
@@ -123,7 +136,7 @@ class CombinerWindow(Gtk.Window):
         pass
 
     def end_conversion(self, filedone):
-        self.cancel_button.set_label(_("Close"))
+        self.cancel_button.set_label(self._("Close"))
         self.cancel_button.set_sensitive(True)
         if self.cancel_handler_id > 0:
             self.cancel_button.disconnect(self.cancel_handler_id)
@@ -152,8 +165,10 @@ class CombinerWindow(Gtk.Window):
 class VideoAudioCombinerExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
         GObject.GObject.__init__(self)
+        self._ = setup_localisation()
 
     def get_file_items(self, window, files):
+        self._ = setup_localisation()
         if len(files) < 2:
             return []
 
@@ -165,13 +180,13 @@ class VideoAudioCombinerExtension(GObject.GObject, Nautilus.MenuProvider):
 
         item = Nautilus.MenuItem(
             name='VideoAudioCombinerExtension::Combine',
-            label=_('Combine Audio/Video'),
-            tip=_('Combines a video file and audio files')
+            label=self._('Combine Audio/Video'),
+            tip=self._('Combines a video file and audio files')
         )
         item.connect('activate', self.show_combiner_window, files)
 
         return [item]
 
     def show_combiner_window(self, menu, files):
-        win = CombinerWindow(files)
+        win = CombinerWindow(files, self._)
         win.show_all()
