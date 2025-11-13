@@ -9,6 +9,7 @@ import fcntl
 import time
 from gi.repository import GLib
 
+
 def setup_localisation():
     APP_NAME = "msvsphere-nautilus-extensions"
     local_locale_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "po")
@@ -21,7 +22,6 @@ def setup_localisation():
     gettext.bindtextdomain(APP_NAME, LOCALE_DIR)
     gettext.textdomain(APP_NAME)
     return gettext.gettext
-
 
 
 def time_to_integer(timef: str = '0', sec=False, rnd=False) -> int:

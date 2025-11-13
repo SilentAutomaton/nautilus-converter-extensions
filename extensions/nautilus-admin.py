@@ -3,11 +3,6 @@ import subprocess
 from gi.repository import Nautilus, GObject
 from common import setup_localisation
 
-import os
-import subprocess
-from gi.repository import Nautilus, GObject
-from common import setup_localisation
-
 ROOT_UID = 0
 NAUTILUS_PATH = "/usr/bin/nautilus"
 TEXT_EDITOR_PATHS = ["/usr/bin/gnome-text-editor", "/usr/bin/gedit"]

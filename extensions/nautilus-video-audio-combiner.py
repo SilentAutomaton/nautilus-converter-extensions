@@ -12,19 +12,6 @@ from common import (
     ffmpeg_cmd_args,
 )
 
-import gi
-gi.require_version('Nautilus', '3.0')
-gi.require_version('Gtk', '3.0')
-from gi.repository import Nautilus, GObject, Gtk, GLib
-import queue
-import subprocess
-import os
-import shlex
-from common import (
-    setup_localisation,
-    FFmpeg,
-    ffmpeg_cmd_args,
-)
 
 def combiner_pass(*args, trans, **kwa):
     """

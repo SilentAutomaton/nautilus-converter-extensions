@@ -13,6 +13,7 @@ from common import (
     FFmpeg
 )
 
+
 class VideoConverterWindow(Gtk.Window):
     VCODECS = {
         "MPEG-4": {"-c:v mpeg4": ["avi"]},

@@ -13,21 +13,6 @@ from common import (
     FFmpeg
 )
 
-import gi
-gi.require_version('Nautilus', '3.0')
-gi.require_version('Gtk', '3.0')
-from gi.repository import Nautilus, GObject, Gtk, GLib
-import queue
-import subprocess
-import os
-from common import (
-    setup_localisation,
-    time_to_integer,
-    integer_to_time,
-    pairwise,
-    FFmpeg
-)
-
 class AudioConverterWindow(Gtk.Window):
     ACODECS = {
         "MP3": {"-c:a libmp3lame": ["mp3"]},

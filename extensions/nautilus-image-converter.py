@@ -8,15 +8,6 @@ import sys
 import threading
 from common import setup_localisation, Popen
 
-import gi
-gi.require_version('Nautilus', '3.0')
-gi.require_version('Gtk', '3.0')
-from gi.repository import Nautilus, GObject, Gtk, GLib
-import subprocess
-import os
-import sys
-import threading
-from common import setup_localisation, Popen
 
 class ImageConverterWindow(Gtk.ApplicationWindow):
     def __init__(self, files, format, app, trans):
