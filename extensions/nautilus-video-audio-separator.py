@@ -1,24 +1,24 @@
 from gi.repository import Nautilus, GObject, Gtk, GLib
-import queue
 import subprocess
 import os
 import json
 import shlex
 from common import (
     setup_localisation,
-    FFmpeg,
+    get_duration,
     ffmpeg_cmd_args,
+    BaseConverterWindow,
 )
 
 _ = setup_localisation()
+
 
 def separator_pass(*args, **kwa):
     """
     Command builder for separator pass.
     """
-    _ = setup_localisation()
     cmd = ffmpeg_cmd_args()
-    
+
     pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
     pass1.extend(['-i', kwa["source"]])
     pass1.extend(kwa["args"][0].split())
@@ -30,31 +30,26 @@ def separator_pass(*args, **kwa):
     return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
 
 
-class SeparatorWindow(Gtk.Window):
+class SeparatorWindow(BaseConverterWindow):
     def __init__(self, files):
-        super().__init__(title=_("Separating Audio/Video"))
-        self.progress_queue = queue.Queue()
-        self.files = files
-        self.set_default_size(400, 100)
-
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        vbox.set_margin_top(12)
-        vbox.set_margin_bottom(12)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
-        self.set_child(vbox)
+        super().__init__(
+            title=_("Separating Audio/Video"),
+            files=files,
+            default_size=(400, 100),
+            show_progress_details=False,
+        )
 
         self.label_file_count = Gtk.Label()
-        vbox.append(self.label_file_count)
+        self.vbox.append(self.label_file_count)
 
         self.cancel_button = Gtk.Button(label=_("Cancel"))
         self.cancel_handler_id = self.cancel_button.connect("clicked", self.on_cancel_clicked)
-        vbox.append(self.cancel_button)
+        self.vbox.append(self.cancel_button)
 
         self.start_separation()
 
     def on_cancel_clicked(self, widget):
-        if hasattr(self, 'thread') and self.thread.is_alive():
+        if self.thread and self.thread.is_alive():
             self.thread.stop()
         self.cancel_button.set_sensitive(False)
 
@@ -67,22 +62,12 @@ class SeparatorWindow(Gtk.Window):
         except (subprocess.CalledProcessError, ValueError, KeyError):
             return []
 
-    def get_duration(self, input_path):
-        try:
-            duration_process = subprocess.run([
-                'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                '-of', 'default=noprint_wrappers=1:nokey=1', input_path
-            ], capture_output=True, text=True, check=True)
-            return float(duration_process.stdout)
-        except (subprocess.CalledProcessError, ValueError):
-            return 0
-
     def start_separation(self):
         tasks = []
         for file in self.files:
             input_path = file.get_location().get_path()
             base_path, ext = os.path.splitext(input_path)
-            duration = self.get_duration(input_path)
+            duration = get_duration(input_path)
 
             streams = self.get_stream_info(input_path)
             audio_streams = [s for s in streams if s['codec_type'] == 'audio']
@@ -104,14 +89,14 @@ class SeparatorWindow(Gtk.Window):
             for i, audio_stream in enumerate(audio_streams):
                 audio_index = audio_stream['index']
                 try:
-                    audio_format = subprocess.run([
+                    audio_fmt = subprocess.run([
                         'ffprobe', '-v', 'error', '-select_streams', f'a:{i}', '-show_entries', 'stream=codec_name',
                         '-of', 'default=noprint_wrappers=1:nokey=1', input_path
                     ], capture_output=True, text=True, check=True).stdout.strip()
                 except (subprocess.CalledProcessError, ValueError):
-                    audio_format = 'aac' # fallback
-                
-                audio_output_path = f"{base_path}_audio_{i}.{audio_format}"
+                    audio_fmt = 'aac'
+
+                audio_output_path = f"{base_path}_audio_{i}.{audio_fmt}"
                 audio_args = ['-map', f'0:{audio_index}', '-acodec', 'copy']
                 tasks.append({
                     'source': input_path,
@@ -122,26 +107,22 @@ class SeparatorWindow(Gtk.Window):
                     'start-time': '',
                     'end-time': '',
                 })
-        
+
         if not tasks:
-            self.update_count(_("Error: No streams found to separate."), 0, 'ERROR')
+            self.label_file_count.set_text(_("Error: No streams found to separate."))
             GLib.timeout_add(2000, self.close)
             return
 
-        self.thread = FFmpeg(self, self.progress_queue, tasks, cmd_builder=separator_pass)
-        GLib.timeout_add(100, self.update_progress_from_queue)
+        self._start_ffmpeg(tasks, cmd_builder=separator_pass)
 
-    def update_count(self, count, duration, end):
-        if end == 'ERROR':
+    def update_count(self, count, duration, status):
+        from common import Status
+        if status == Status.ERROR:
             self.label_file_count.set_text(_("Error: {0}").format(count))
-        elif end == 'DONE':
+        elif status == Status.DONE:
             self.label_file_count.set_text(_("Done!"))
         else:
             self.label_file_count.set_text(count)
-
-    def update_output(self, output, duration, status):
-        # This is now a no-op, but needs to exist for FFmpeg class callbacks.
-        pass
 
     def end_conversion(self, filedone):
         self.cancel_button.set_label(_("Close"))
@@ -150,24 +131,6 @@ class SeparatorWindow(Gtk.Window):
             self.cancel_button.disconnect(self.cancel_handler_id)
             self.cancel_handler_id = 0
         GLib.timeout_add(1000, self.close)
-
-    def update_progress_from_queue(self):
-        try:
-            while not self.progress_queue.empty():
-                self.progress_queue.get_nowait()
-        except queue.Empty:
-            pass
-
-        if hasattr(self, 'thread') and self.thread.is_alive():
-            return True # Keep timer running
-        else:
-            # One final drain of the queue
-            try:
-                while not self.progress_queue.empty():
-                    self.progress_queue.get_nowait()
-            except queue.Empty:
-                pass
-            return False # Stop timer
 
 
 class VideoAudioSeparatorExtension(GObject.GObject, Nautilus.MenuProvider):

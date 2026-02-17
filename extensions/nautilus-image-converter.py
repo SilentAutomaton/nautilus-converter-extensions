@@ -1,19 +1,20 @@
 from gi.repository import Nautilus, GObject, Gtk, GLib
 import subprocess
 import os
-import sys
 import threading
-from common import setup_localisation, Popen
+from common import setup_localisation
 
 _ = setup_localisation()
 
-class ImageConverterWindow(Gtk.ApplicationWindow):
-    def __init__(self, files, format, app):
-        super().__init__(title=_("Image Converter"), application=app)
+
+class ImageConverterWindow(Gtk.Window):
+    def __init__(self, files, fmt):
+        super().__init__(title=_("Image Converter"))
         self.files = files
-        self.format = format
+        self.fmt = fmt
         self.set_default_size(400, 100)
         self.proc = None
+        self.stop_requested = False
         self.connect("destroy", self.on_destroy)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -23,53 +24,58 @@ class ImageConverterWindow(Gtk.ApplicationWindow):
         vbox.set_margin_end(12)
         self.set_child(vbox)
 
-        self.label = Gtk.Label(label=_("Converting {0} files to {1}...").format(len(files), format.upper()))
+        self.label = Gtk.Label(label=_("Converting {0} files to {1}...").format(len(files), fmt.upper()))
         vbox.append(self.label)
 
         self.progress_bar = Gtk.ProgressBar()
         vbox.append(self.progress_bar)
 
-        self.thread = threading.Thread(target=self.convert_files)
+        self.thread = threading.Thread(target=self.convert_files, daemon=True)
         self.thread.start()
 
     def on_destroy(self, widget):
+        self.stop_requested = True
         if self.proc:
             self.proc.terminate()
 
     def convert_files(self):
         for i, file in enumerate(self.files):
-            input_path = file
-            output_path = os.path.splitext(input_path)[0] + f'.{self.format}'
-            
-            proc = None
+            if self.stop_requested:
+                return
+
+            input_path = file.get_location().get_path()
+            base, ext = os.path.splitext(input_path)
+            if ext.lstrip('.').lower() == self.fmt.lower():
+                output_path = f'{base}_converted.{self.fmt}'
+            else:
+                output_path = f'{base}.{self.fmt}'
+
             try:
-                with Popen(['convert', input_path, output_path],
-                                 stderr=subprocess.PIPE,
-                                 stdin=subprocess.PIPE,
-                                 bufsize=1,
-                                 universal_newlines=True,
-                                 encoding='utf-8',
-                                 ) as proc:
-                    self.proc = proc
-                    for line in proc.stderr:
-                        pass
+                proc = subprocess.Popen(
+                    ['convert', input_path, output_path],
+                    stderr=subprocess.PIPE,
+                    stdin=subprocess.PIPE,
+                    universal_newlines=True,
+                    encoding='utf-8',
+                )
+                self.proc = proc
+                proc.wait()
+
+                if proc.returncode != 0:
+                    stderr_output = proc.stderr.read()
+                    GLib.idle_add(self.label.set_text,
+                                  _("Error: {0}").format(stderr_output.strip() or f"exit code {proc.returncode}"))
+                    return
 
             except (OSError, FileNotFoundError) as e:
-                GLib.idle_add(self.update_ui_on_error, str(e))
+                GLib.idle_add(self.label.set_text, _("Error: {0}").format(str(e)))
                 return
-            except Exception:
-                pass
-
-            if proc and proc.returncode and proc.returncode != 0:
-                break
 
             fraction = (i + 1) / len(self.files)
             GLib.idle_add(self.progress_bar.set_fraction, fraction)
 
-        GLib.idle_add(self.close)
+        GLib.idle_add(self.label.set_text, _("Done!"))
 
-    def update_ui_on_error(self, error_message):
-        self.label.set_text(_("Error: {0}").format(error_message))
 
 class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
@@ -84,7 +90,7 @@ class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
                 return []
 
         submenu = Nautilus.Menu()
-        
+
         item = Nautilus.MenuItem(
             name='ImageConverterExtension::Convert',
             label=_('Convert to'),
@@ -93,49 +99,36 @@ class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):
         item.set_submenu(submenu)
 
         mime_types = {file.get_mime_type() for file in files}
-        
-        excluded_format = None
+
+        excluded_fmt = None
         if len(mime_types) == 1:
             mime_type = mime_types.pop()
-            if mime_type == 'image/jpeg':
-                excluded_format = 'JPG'
-            elif mime_type == 'image/png':
-                excluded_format = 'PNG'
-            elif mime_type == 'image/bmp':
-                excluded_format = 'BMP'
-            elif mime_type == 'image/tiff':
-                excluded_format = 'TIFF'
-            elif mime_type == 'image/webp':
-                excluded_format = 'WEBP'
+            mime_to_fmt = {
+                'image/jpeg': 'JPG',
+                'image/png': 'PNG',
+                'image/bmp': 'BMP',
+                'image/tiff': 'TIFF',
+                'image/webp': 'WEBP',
+            }
+            excluded_fmt = mime_to_fmt.get(mime_type)
 
         formats = ['JPG', 'PNG', 'BMP', 'TIFF', 'WEBP']
-        
-        for format in formats:
-            if format != excluded_format:
-                self.add_submenu_item(submenu, format, files)
+
+        for fmt in formats:
+            if fmt != excluded_fmt:
+                self._add_submenu_item(submenu, fmt, files)
 
         return [item]
 
-    def add_submenu_item(self, submenu, format, files):
+    def _add_submenu_item(self, submenu, fmt, files):
         item = Nautilus.MenuItem(
-            name=f'ImageConverterExtension::Convert::{format}',
-            label=format,
-            tip=_('Convert to {0}').format(format)
+            name=f'ImageConverterExtension::Convert::{fmt}',
+            label=fmt,
+            tip=_('Convert to {0}').format(fmt)
         )
-        item.connect('activate', self.run_converter, files, format.lower())
+        item.connect('activate', self._show_converter_window, files, fmt.lower())
         submenu.append_item(item)
 
-    def run_converter(self, menu, files, format):
-        file_paths = [file.get_location().get_path() for file in files]
-        subprocess.Popen([sys.executable, __file__, format] + file_paths)
-
-if __name__ == "__main__":
-    if len(sys.argv) > 2:
-        format = sys.argv[1]
-        files = sys.argv[2:]
-        app = Gtk.Application(application_id="org.gnome.nautilus.image-converter")
-        def on_activate(app):
-            win = ImageConverterWindow(files, format, app)
-            win.set_visible(True)
-        app.connect('activate', on_activate)
-        app.run(None)
+    def _show_converter_window(self, menu, files, fmt):
+        win = ImageConverterWindow(files, fmt)
+        win.set_visible(True)

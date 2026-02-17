@@ -1,18 +1,16 @@
-from gi.repository import Nautilus, GObject, Gtk, GLib
-import queue
+from gi.repository import Nautilus, GObject, Gtk
 import subprocess
 import os
 from common import (
     setup_localisation,
-    time_to_integer,
-    integer_to_time,
-    pairwise,
-    FFmpeg
+    get_duration,
+    BaseConverterWindow,
 )
 
 _ = setup_localisation()
 
-class VideoConverterWindow(Gtk.Window):
+
+class VideoConverterWindow(BaseConverterWindow):
     VCODECS = {
         "MPEG-4": {"-c:v mpeg4": ["avi"]},
         "XVID MPEG-4": {"-c:v libxvid": ["avi"]},
@@ -24,14 +22,11 @@ class VideoConverterWindow(Gtk.Window):
         "SVT-AV1": {"-c:v libsvtav1": ["mkv", "webm"]},
         "SVT-AV1 10-bit": {"-c:v libsvtav1": ["mkv", "webm"]},
         "VP9": {"-c:v libvpx-vp9": ["webm", "mkv"]},
-        "Copy": {"-c:v copy": ["mkv", "mp4", "avi", "m4v", "webm", "Copy"]} 
+        "Copy": {"-c:v copy": ["mkv", "mp4", "avi", "m4v", "webm", "Copy"]}
     }
 
     def __init__(self, files):
-        super().__init__(title=_("Video Converter"))
-        self.progress_queue = queue.Queue()
-        self.files = files
-        self.set_default_size(500, 400)
+        super().__init__(title=_("Video Converter"), files=files)
 
         header = Gtk.HeaderBar()
         self.set_titlebar(header)
@@ -41,16 +36,9 @@ class VideoConverterWindow(Gtk.Window):
         self.convert_button.get_style_context().add_class("suggested-action")
         header.pack_start(self.convert_button)
 
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        vbox.set_margin_top(12)
-        vbox.set_margin_bottom(12)
-        vbox.set_margin_start(12)
-        vbox.set_margin_end(12)
-        self.set_child(vbox)
-
-        #  Format and Codec selection 
+        #  Format and Codec selection
         grid = Gtk.Grid(column_spacing=10, row_spacing=10)
-        vbox.append(grid)
+        self.vbox.append(grid)
 
         label_vcodec = Gtk.Label(label=_("Video Codec:"))
         label_vcodec.set_halign(Gtk.Align.START)
@@ -63,18 +51,18 @@ class VideoConverterWindow(Gtk.Window):
         self.vcodec_combo.connect("changed", self.on_vcodec_changed)
         grid.attach(self.vcodec_combo, 1, 0, 1, 1)
 
-        label_format = Gtk.Label(label=_("Container:"))
-        label_format.set_halign(Gtk.Align.START)
-        grid.attach(label_format, 0, 1, 1, 1)
+        label_container = Gtk.Label(label=_("Container:"))
+        label_container.set_halign(Gtk.Align.START)
+        grid.attach(label_container, 0, 1, 1, 1)
 
-        self.format_combo = Gtk.ComboBoxText()
+        self.container_combo = Gtk.ComboBoxText()
         self.on_vcodec_changed(self.vcodec_combo)  # Populate initially
-        grid.attach(self.format_combo, 1, 1, 1, 1)
+        grid.attach(self.container_combo, 1, 1, 1, 1)
 
-        #  Advanced options 
+        #  Advanced options
         advanced_box = Gtk.Box(spacing=6)
         advanced_box.set_halign(Gtk.Align.START)
-        vbox.append(advanced_box)
+        self.vbox.append(advanced_box)
 
         label_advanced = Gtk.Label(label=_("Advanced Options"))
         advanced_box.append(label_advanced)
@@ -85,7 +73,7 @@ class VideoConverterWindow(Gtk.Window):
 
         self.advanced_frame = Gtk.Frame()
         self.advanced_frame.set_visible(False)
-        vbox.append(self.advanced_frame)
+        self.vbox.append(self.advanced_frame)
 
         self.advanced_grid = Gtk.Grid(column_spacing=10, row_spacing=10)
         self.advanced_grid.set_margin_top(12)
@@ -94,7 +82,6 @@ class VideoConverterWindow(Gtk.Window):
         self.advanced_grid.set_margin_end(12)
         self.advanced_frame.set_child(self.advanced_grid)
 
-        # Advanced options widgets 
         # CRF
         label_crf = Gtk.Label(label=_("CRF:"))
         label_crf.set_halign(Gtk.Align.START)
@@ -153,22 +140,8 @@ class VideoConverterWindow(Gtk.Window):
         # Convert button
         self.convert_button.connect("clicked", self.on_convert_clicked)
 
-        #  Progress bar 
-        self.progress_bar = Gtk.ProgressBar()
-        vbox.append(self.progress_bar)
-
-        #  Progress labels 
-        self.label_file_count = Gtk.Label()
-        vbox.append(self.label_file_count)
-
-        self.label_timestamps = Gtk.Label()
-        vbox.append(self.label_timestamps)
-
-        self.label_ffmpeg_output = Gtk.Label()
-        self.label_ffmpeg_output.set_ellipsize(3) # END
-        vbox.append(self.label_ffmpeg_output)
-
-        self.connect("destroy", self.on_destroy)
+        # Progress UI from base class
+        self._setup_progress_ui()
 
         video_infos = []
         for file in self.files:
@@ -210,17 +183,13 @@ class VideoConverterWindow(Gtk.Window):
             self.pix_fmt_combo.set_sensitive(False)
             self.entry_bitrate.set_sensitive(False)
 
-    def on_destroy(self, widget):
-        if hasattr(self, 'thread') and self.thread.is_alive():
-            self.thread.stop()
-
     def on_vcodec_changed(self, widget):
         vcodec_str = self.vcodec_combo.get_active_text()
         containers = list(self.VCODECS[vcodec_str].values())[0]
-        self.format_combo.remove_all()
+        self.container_combo.remove_all()
         for container in containers:
-            self.format_combo.append_text(container)
-        self.format_combo.set_active(0)
+            self.container_combo.append_text(container)
+        self.container_combo.set_active(0)
 
     def on_advanced_toggled(self, widget, _):
         self.advanced_frame.set_visible(widget.get_active())
@@ -228,15 +197,19 @@ class VideoConverterWindow(Gtk.Window):
     def on_convert_clicked(self, widget):
         vcodec_str = self.vcodec_combo.get_active_text()
         video_codec = list(self.VCODECS[vcodec_str].keys())[0]
-        format = self.format_combo.get_active_text()
+        container = self.container_combo.get_active_text()
         self.convert_button.set_sensitive(False)
 
         kwargs_list = []
         for file in self.files:
             input_path = file.get_location().get_path()
-            output_path = os.path.splitext(input_path)[0] + f'.{format}'
+            base, ext = os.path.splitext(input_path)
+            if ext.lstrip('.').lower() == container.lower():
+                output_path = f'{base}_converted.{container}'
+            else:
+                output_path = f'{base}.{container}'
 
-            duration = self.get_duration(input_path)
+            duration = get_duration(input_path)
 
             args = [video_codec]
             if self.advanced_switch.get_active():
@@ -272,22 +245,11 @@ class VideoConverterWindow(Gtk.Window):
                 'start-time': '',
                 'end-time': '',
                 'args': [' '.join(args), None],
-                'duration': duration * 1000,  # Convert to milliseconds
+                'duration': duration * 1000,
             }
             kwargs_list.append(kwargs)
 
-        self.thread = FFmpeg(self, self.progress_queue, kwargs_list)
-        GLib.timeout_add(100, self.update_progress_from_queue)
-
-    def get_duration(self, input_path):
-        try:
-            duration_process = subprocess.run([
-                'ffprobe', '-v', 'error', '-show_entries', 'format=duration',
-                '-of', 'default=noprint_wrappers=1:nokey=1', input_path
-            ], capture_output=True, text=True, check=True)
-            return float(duration_process.stdout)
-        except (subprocess.CalledProcessError, ValueError):
-            return 0
+        self._start_ffmpeg(kwargs_list)
 
     def get_video_info(self, input_path):
         try:
@@ -325,100 +287,8 @@ class VideoConverterWindow(Gtk.Window):
             except ValueError:
                 pass
 
-    def update_count(self, count, duration, end):
-        if end == 'ERROR':
-            self.label_file_count.set_text(_("Error: {0}").format(count))
-        elif end == 'DONE':
-            self.label_file_count.set_text(_("Done!"))
-            self.progress_bar.set_fraction(1)
-            newlab = self.label_timestamps.get_label().split()
-            if 'Processing:' in newlab:
-                newlab[1] = '100%'
-            if 'ETA:' in newlab:
-                newlab[3] = '00:00:00'
-            self.label_timestamps.set_label(" ".join(newlab))
-        else:
-            self.label_file_count.set_text(count)
-            self.progress_bar.set_fraction(0)
-            self.label_timestamps.set_text("")
-            self.label_ffmpeg_output.set_text("")
-
-    def update_output(self, output, duration, status):
-        if status != 0:
-            if output == 'STOP':
-                self.label_ffmpeg_output.set_text(_("Conversion stopped."))
-            else:
-                self.label_ffmpeg_output.set_text(_("Conversion failed."))
-            return
-
-        if 'time=' in output:
-            i = output.index('time=') + 5
-            pos = output[i:].split()[0]
-            msec = time_to_integer(pos)
-
-            if msec > duration:
-                self.progress_bar.set_fraction(1)
-            elif msec == 0:
-                self.progress_bar.set_fraction(self.progress_bar.get_fraction())
-            else:
-                self.progress_bar.set_fraction(msec / duration if duration > 0 else 0)
-
-            percentage = round((msec / duration) * 100 if duration != 0 else 100)
-            out = [a for a in "=".join(output.split()).split('=') if a]
-            ffprog = []
-            for key, val in pairwise(out):
-                ffprog.append(f"{key}: {val}")
-
-            if 'speed=' in output:
-                speed = output.split('speed=')[-1].strip().split('x')[0]
-                if speed in ('N/A', '0') or 'N/A' in speed:
-                    eta = "ETA: N/A"
-                else:
-                    try:
-                        rem = (duration - msec) / float(speed)
-                        remaining = integer_to_time(round(rem), mills=False)
-                        eta = f"ETA: {remaining}"
-                    except (ValueError, ZeroDivisionError):
-                        eta = "ETA: N/A"
-            else:
-                eta = "ETA: N/A"
-
-            self.label_timestamps.set_text(_('Processing: {0}% {1}').format(str(int(percentage)), eta))
-            self.label_ffmpeg_output.set_text(' | '.join(ffprog))
-        else:
-            print(output, end="")
-
     def end_conversion(self, filedone):
         self.convert_button.set_sensitive(True)
-        # self.destroy()
-
-    def update_progress_from_queue(self):
-        try:
-            while not self.progress_queue.empty():
-                progress_info = self.progress_queue.get_nowait()
-                self.update_output(
-                    progress_info['line'],
-                    progress_info['duration'],
-                    progress_info['status']
-                )
-        except queue.Empty:
-            pass
-
-        if hasattr(self, 'thread') and self.thread.is_alive():
-            return True # Keep timer running
-        else:
-            # One final drain of the queue
-            try:
-                while not self.progress_queue.empty():
-                    progress_info = self.progress_queue.get_nowait()
-                    self.update_output(
-                        progress_info['line'],
-                        progress_info['duration'],
-                        progress_info['status']
-                    )
-            except queue.Empty:
-                pass
-            return False # Stop timer
 
 
 class VideoConverterExtension(GObject.GObject, Nautilus.MenuProvider):
