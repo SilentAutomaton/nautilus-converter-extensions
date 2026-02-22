@@ -2,6 +2,7 @@ from gi.repository import Nautilus, GObject, Gtk, GLib
 import subprocess
 import os
 import threading
+import queue
 from common import setup_localisation
 
 _ = setup_localisation()
@@ -15,6 +16,8 @@ class ImageConverterWindow(Gtk.Window):
         self.set_default_size(400, 100)
         self.proc = None
         self.stop_requested = False
+        self._queue = queue.Queue()
+        self._thread_done = False
         self.connect("destroy", self.on_destroy)
 
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -32,15 +35,35 @@ class ImageConverterWindow(Gtk.Window):
 
         self.thread = threading.Thread(target=self.convert_files, daemon=True)
         self.thread.start()
+        self.add_tick_callback(self._tick_poll)
 
     def on_destroy(self, widget):
         self.stop_requested = True
         if self.proc:
             self.proc.terminate()
 
+    def _tick_poll(self, widget, frame_clock):
+        try:
+            while True:
+                msg = self._queue.get_nowait()
+                kind = msg[0]
+                if kind == 'fraction':
+                    self.progress_bar.set_fraction(msg[1])
+                elif kind == 'label':
+                    self.label.set_text(msg[1])
+                elif kind == 'close':
+                    GLib.timeout_add(1500, self.close)
+        except queue.Empty:
+            pass
+
+        if self._thread_done and self._queue.empty():
+            return GLib.SOURCE_REMOVE
+        return GLib.SOURCE_CONTINUE
+
     def convert_files(self):
         for i, file in enumerate(self.files):
             if self.stop_requested:
+                self._thread_done = True
                 return
 
             input_path = file.get_location().get_path()
@@ -63,18 +86,21 @@ class ImageConverterWindow(Gtk.Window):
 
                 if proc.returncode != 0:
                     stderr_output = proc.stderr.read()
-                    GLib.idle_add(self.label.set_text,
-                                  _("Error: {0}").format(stderr_output.strip() or f"exit code {proc.returncode}"))
+                    self._queue.put(('label', _("Error: {0}").format(
+                        stderr_output.strip() or f"exit code {proc.returncode}")))
+                    self._thread_done = True
                     return
 
             except (OSError, FileNotFoundError) as e:
-                GLib.idle_add(self.label.set_text, _("Error: {0}").format(str(e)))
+                self._queue.put(('label', _("Error: {0}").format(str(e))))
+                self._thread_done = True
                 return
 
-            fraction = (i + 1) / len(self.files)
-            GLib.idle_add(self.progress_bar.set_fraction, fraction)
+            self._queue.put(('fraction', (i + 1) / len(self.files)))
 
-        GLib.idle_add(self.label.set_text, _("Done!"))
+        self._queue.put(('label', _("Done!")))
+        self._queue.put(('close', None))
+        self._thread_done = True
 
 
 class ImageConverterExtension(GObject.GObject, Nautilus.MenuProvider):

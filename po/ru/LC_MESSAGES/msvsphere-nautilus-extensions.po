@@ -1,19 +1,21 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
+"Project-Id-Version: msvsphere-nautilus-extensions\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-10-30 14:31+0300\n"
-"PO-Revision-Date: 2025-10-14 03:35+0300\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: Russian <LL@li.org>\n"
+"POT-Creation-Date: 2026-02-22 07:41+0300\n"
+"PO-Revision-Date: 2026-02-22 07:41+0300\n"
+"Last-Translator: \n"
+"Language-Team: Russian <ru@li.org>\n"
 "Language: ru\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: extensions/common.py:116
-#, fuzzy, python-brace-format
+# ── common.py ─────────────────────────────────────────────────────────────────
+
+#: common.py:119
+#, python-brace-format
 msgid ""
 "File {0}/{1}\n"
 "Source: \"{2}\"\n"
@@ -23,200 +25,315 @@ msgstr ""
 "Источник: \"{2}\"\n"
 "Назначение: \"{3}\""
 
-#: extensions/nautilus-admin.py:75
-msgid "Open as Administrator"
-msgstr "Открыть от имени администратора"
-
-#: extensions/nautilus-admin.py:76
-msgid "Open this folder with root privileges"
-msgstr "Открыть эту папку с правами суперпользователя"
-
-#: extensions/nautilus-admin.py:84
-msgid "Edit as Administrator"
-msgstr "Редактировать от имени администратора"
-
-#: extensions/nautilus-admin.py:85
-msgid "Open this file in the text editor with root privileges"
-msgstr "Открыть этот файл в текстовом редакторе с правами суперпользователя"
-
-#: extensions/nautilus-audio-converter.py:25
-msgid "Audio Converter"
-msgstr "Аудиоконвертер"
-
-#: extensions/nautilus-audio-converter.py:34
-#: extensions/nautilus-video-converter.py:40
-msgid "Convert"
-msgstr "Конвертировать"
-
-#: extensions/nautilus-audio-converter.py:49
-msgid "Audio Codec:"
-msgstr "Аудиокодек:"
-
-#: extensions/nautilus-audio-converter.py:124
-#: extensions/nautilus-image-converter.py:59
-#: extensions/nautilus-video-audio-combiner.py:112
-#: extensions/nautilus-video-audio-separator.py:136
-#: extensions/nautilus-video-converter.py:330
+#: common.py:339 nautilus-image-converter.py:89 nautilus-image-converter.py:95
+#: nautilus-video-audio-streams.py:72 nautilus-pdf-converter.py:127
+#: nautilus-pdf-converter.py:157 nautilus-pdf-converter.py:309
+#: nautilus-pdf-converter.py:332
 #, python-brace-format
 msgid "Error: {0}"
 msgstr "Ошибка: {0}"
 
-#: extensions/nautilus-audio-converter.py:126
-#: extensions/nautilus-video-audio-combiner.py:114
-#: extensions/nautilus-video-audio-separator.py:138
-#: extensions/nautilus-video-converter.py:332
+#: common.py:341 nautilus-image-converter.py:101
+#: nautilus-video-audio-streams.py:82 nautilus-pdf-converter.py:172
 msgid "Done!"
 msgstr "Готово!"
 
-#: extensions/nautilus-audio-converter.py:129
+#: common.py:345
 msgid "Processing:"
 msgstr "Обработка:"
 
-#: extensions/nautilus-audio-converter.py:143
-#: extensions/nautilus-video-converter.py:349
+#: common.py:363
 msgid "Conversion stopped."
 msgstr "Конвертация остановлена."
 
-#: extensions/nautilus-audio-converter.py:145
-#: extensions/nautilus-video-converter.py:351
+#: common.py:365
 msgid "Conversion failed."
 msgstr "Ошибка конвертации."
 
-#: extensions/nautilus-audio-converter.py:180
-#: extensions/nautilus-video-converter.py:386
+#: common.py:399
 #, python-brace-format
 msgid "Processing: {0}% {1}"
 msgstr "Обработка: {0}% {1}"
 
-#: extensions/nautilus-audio-converter.py:231
-#: extensions/nautilus-image-converter.py:77
-#: extensions/nautilus-video-converter.py:438
+# ── nautilus-audio-converter.py ───────────────────────────────────────────────
+
+#: nautilus-audio-converter.py:22
+msgid "Audio Converter"
+msgstr "Аудиоконвертер"
+
+#: nautilus-audio-converter.py:28 nautilus-video-converter.py:35
+#: nautilus-pdf-converter.py:60
+msgid "Convert"
+msgstr "Конвертировать"
+
+#: nautilus-audio-converter.py:36
+msgid "Audio Codec:"
+msgstr "Аудиокодек:"
+
+#: nautilus-audio-converter.py:102 nautilus-video-converter.py:308
+#: nautilus-image-converter.py:122
 msgid "Convert to"
 msgstr "Конвертировать в"
 
-#: extensions/nautilus-audio-converter.py:232
+#: nautilus-audio-converter.py:103
 msgid "Converts selected audio(s) to a different format"
-msgstr "Конвертирует выбранные аудио в другой формат"
+msgstr "Конвертирует выбранные аудиофайлы в другой формат"
 
-#: extensions/nautilus-image-converter.py:12
+# ── nautilus-video-converter.py ───────────────────────────────────────────────
+
+#: nautilus-video-converter.py:29
+msgid "Video Converter"
+msgstr "Видеоконвертер"
+
+#: nautilus-video-converter.py:43
+msgid "Video Codec:"
+msgstr "Видеокодек:"
+
+#: nautilus-video-converter.py:54
+msgid "Container:"
+msgstr "Контейнер:"
+
+#: nautilus-video-converter.py:67
+msgid "Advanced Options"
+msgstr "Расширенные настройки"
+
+#: nautilus-video-converter.py:86
+msgid "CRF:"
+msgstr "CRF:"
+
+#: nautilus-video-converter.py:95
+msgid "Preset:"
+msgstr "Предустановка:"
+
+#: nautilus-video-converter.py:106
+msgid "Pixel Format:"
+msgstr "Формат пикселя:"
+
+#: nautilus-video-converter.py:117
+msgid "Resolution:"
+msgstr "Разрешение:"
+
+#: nautilus-video-converter.py:121
+msgid "Keep Aspect Ratio"
+msgstr "Сохранить соотношение сторон"
+
+#: nautilus-video-converter.py:134
+msgid "Bitrate (kbps):"
+msgstr "Битрейт (кбит/с):"
+
+#: nautilus-video-converter.py:309
+msgid "Converts selected video(s) to a different format"
+msgstr "Конвертирует выбранные видеофайлы в другой формат"
+
+# ── nautilus-image-converter.py ───────────────────────────────────────────────
+
+#: nautilus-image-converter.py:13
 msgid "Image Converter"
 msgstr "Конвертер изображений"
 
-#: extensions/nautilus-image-converter.py:24
+#: nautilus-image-converter.py:30
 #, python-brace-format
 msgid "Converting {0} files to {1}..."
 msgstr "Конвертация {0} файлов в {1}..."
 
-#: extensions/nautilus-image-converter.py:78
+#: nautilus-image-converter.py:123
 msgid "Converts selected image(s) to a different format"
 msgstr "Конвертирует выбранные изображения в другой формат"
 
-#: extensions/nautilus-image-converter.py:110
+#: nautilus-image-converter.py:153
 #, python-brace-format
 msgid "Convert to {0}"
 msgstr "Конвертировать в {0}"
 
-#: extensions/nautilus-video-audio-combiner.py:32
+# ── nautilus-video-audio-streams.py ───────────────────────────────────────────
+
+#: nautilus-video-audio-streams.py:26
 #, python-brace-format
-msgid "Combining video \"{0}\" with {1} audio file(s) ..."
-msgstr "Объединение видео \"{0}\" с {1} аудио файлом(ами)..."
+msgid "Task {0}/{1}: {2}"
+msgstr "Задача {0}/{1}: {2}"
 
-#: extensions/nautilus-video-audio-combiner.py:40
-msgid "Combining Audio/Video"
-msgstr "Объединение аудио/видео"
+#: nautilus-video-audio-streams.py:42
+#, python-brace-format
+msgid "Combining \"{0}\" with {1} audio file(s)..."
+msgstr "Объединение \"{0}\" с {1} аудиофайлом(ами)..."
 
-#: extensions/nautilus-video-audio-combiner.py:55
-#: extensions/nautilus-video-audio-separator.py:50
+#: nautilus-video-audio-streams.py:61 nautilus-subtitle-combiner.py:102
 msgid "Cancel"
 msgstr "Отмена"
 
-#: extensions/nautilus-video-audio-combiner.py:88
-msgid "Error: Please select one video and at least one audio file."
-msgstr "Ошибка: Пожалуйста, выберите одно видео и хотя бы один аудиофайл."
-
-#: extensions/nautilus-video-audio-combiner.py:123
-#: extensions/nautilus-video-audio-separator.py:147
+#: nautilus-video-audio-streams.py:83 nautilus-subtitle-combiner.py:156
+#: nautilus-pdf-converter.py:173 nautilus-pdf-converter.py:276
 msgid "Close"
 msgstr "Закрыть"
 
-#: extensions/nautilus-video-audio-combiner.py:165
-msgid "Combine Audio/Video"
-msgstr "Объединить аудио/видео"
-
-#: extensions/nautilus-video-audio-combiner.py:166
-msgid "Combines a video file and audio files"
-msgstr "Объединяет видеофайл и аудиофайлы"
-
-#: extensions/nautilus-video-audio-separator.py:27
-#, python-brace-format
-msgid "File {0}/{1}: {2}"
-msgstr "Файл {0}/{1}: {2}"
-
-#: extensions/nautilus-video-audio-separator.py:35
+#: nautilus-video-audio-streams.py:97 nautilus-video-audio-streams.py:102
 msgid "Separating Audio/Video"
 msgstr "Разделение аудио/видео"
 
-#: extensions/nautilus-video-audio-separator.py:98
-msgid "Separating video track"
-msgstr "Отделение видеодорожки"
+#: nautilus-video-audio-streams.py:129
+msgid "Extracting video track"
+msgstr "Извлечение видеодорожки"
 
-#: extensions/nautilus-video-audio-separator.py:121
+#: nautilus-video-audio-streams.py:149
 #, python-brace-format
-msgid "Separating audio track {0}"
-msgstr "Отделение аудиодорожки {0}"
+msgid "Extracting audio track {0}"
+msgstr "Извлечение аудиодорожки {0}"
 
-#: extensions/nautilus-video-audio-separator.py:127
+#: nautilus-video-audio-streams.py:154
 msgid "Error: No streams found to separate."
 msgstr "Ошибка: Не найдено потоков для разделения."
 
-#: extensions/nautilus-video-audio-separator.py:187
-msgid "Separate Audio/Video"
-msgstr "Разделить аудио/видео"
+#: nautilus-video-audio-streams.py:167 nautilus-video-audio-streams.py:172
+msgid "Combining Audio/Video"
+msgstr "Объединение аудио/видео"
 
-#: extensions/nautilus-video-audio-separator.py:188
-msgid "Separates audio and video from selected video file(s)"
-msgstr "Отделяет аудио и видео из выбранных видеофайлов"
+#: nautilus-video-audio-streams.py:187
+msgid "Error: Select one video and at least one audio file."
+msgstr "Ошибка: Выберите одно видео и хотя бы один аудиофайл."
 
-#: extensions/nautilus-video-converter.py:31
-msgid "Video Converter"
-msgstr "Видеоконвертер"
+#: nautilus-video-audio-streams.py:224
+msgid "Extract Audio/Video Streams"
+msgstr "Извлечь аудио/видео потоки"
 
-#: extensions/nautilus-video-converter.py:55
-msgid "Video Codec:"
-msgstr "Видеокодек:"
+#: nautilus-video-audio-streams.py:225
+msgid "Extract audio and video as separate files"
+msgstr "Извлечь аудио и видео в отдельные файлы"
 
-#: extensions/nautilus-video-converter.py:66
-msgid "Container:"
-msgstr "Контейнер:"
+#: nautilus-video-audio-streams.py:245
+msgid "Combine Audio/Video"
+msgstr "Объединить аудио/видео"
 
-#: extensions/nautilus-video-converter.py:79
-msgid "Advanced Options"
-msgstr "Расширенные настройки"
+#: nautilus-video-audio-streams.py:246
+msgid "Merge audio tracks into a video file"
+msgstr "Добавить аудиодорожки в видеофайл"
 
-#: extensions/nautilus-video-converter.py:99
-msgid "CRF:"
-msgstr "CRF:"
+# ── nautilus-subtitle-combiner.py ─────────────────────────────────────────────
 
-#: extensions/nautilus-video-converter.py:108
-msgid "Preset:"
-msgstr "Предустановка:"
+#: nautilus-subtitle-combiner.py:47
+#, python-brace-format
+msgid "Embedding {0} subtitle track(s) into \"{1}\"..."
+msgstr "Встраивание {0} дорожек субтитров в \"{1}\"..."
 
-#: extensions/nautilus-video-converter.py:119
-msgid "Pixel Format:"
-msgstr "Формат пикселя:"
+#: nautilus-subtitle-combiner.py:74
+#, python-brace-format
+msgid "Converting subtitles and embedding into \"{0}\"..."
+msgstr "Конвертация субтитров и встраивание в \"{0}\"..."
 
-#: extensions/nautilus-video-converter.py:130
-msgid "Resolution:"
-msgstr "Разрешение:"
+#: nautilus-subtitle-combiner.py
+#, python-brace-format
+msgid "Converting to MKV with {0} subtitle track(s)..."
+msgstr "Конвертация в MKV с {0} дорожками субтитров..."
 
-#: extensions/nautilus-video-converter.py:134
-msgid "Keep Aspect Ratio"
-msgstr "Сохранить соотношение сторон"
+#: nautilus-subtitle-combiner.py:87
+msgid "Converting and Embedding Subtitles"
+msgstr "Конвертация и встраивание субтитров"
 
-#: extensions/nautilus-video-converter.py:147
-msgid "Bitrate (kbps):"
-msgstr "Битрейт (кбит/с):"
+#: nautilus-subtitle-combiner.py:89
+msgid "Converting to MKV and Adding Subtitles"
+msgstr "Конвертация в MKV и добавление субтитров"
 
-#: extensions/nautilus-video-converter.py:439
-msgid "Converts selected video(s) to a different format"
-msgstr "Конвертирует выбранные видео в другой формат"
+#: nautilus-subtitle-combiner.py:91
+msgid "Embedding Subtitles"
+msgstr "Встраивание субтитров"
+
+#: nautilus-subtitle-combiner.py:126
+msgid "Error: Select one video and at least one subtitle file."
+msgstr "Ошибка: Выберите одно видео и хотя бы один файл субтитров."
+
+#: nautilus-subtitle-combiner.py:187
+msgid "Embed Subtitles"
+msgstr "Встроить субтитры"
+
+#: nautilus-subtitle-combiner.py:188
+msgid "Embed subtitle file(s) into the MKV video as tracks"
+msgstr "Встроить файл(ы) субтитров в MKV-видео в виде дорожек"
+
+#: nautilus-subtitle-combiner.py:204
+msgid "Convert Subtitles and Add to Video"
+msgstr "Конвертировать субтитры и добавить в видео"
+
+#: nautilus-subtitle-combiner.py:205
+msgid "Convert subtitles to container format and embed in the video file"
+msgstr "Конвертировать субтитры в формат контейнера и встроить в видеофайл"
+
+#: nautilus-subtitle-combiner.py:212
+msgid "Convert to MKV and Add Subtitles"
+msgstr "Конвертировать в MKV и добавить субтитры"
+
+#: nautilus-subtitle-combiner.py:213
+msgid "Remux video to MKV format and embed subtitle file(s) as tracks"
+msgstr "Перепаковать видео в формат MKV и встроить файл(ы) субтитров в виде дорожек"
+
+# ── nautilus-pdf-converter.py ─────────────────────────────────────────────────
+
+#: nautilus-pdf-converter.py:21
+msgid "PDF to Images"
+msgstr "PDF в изображения"
+
+#: nautilus-pdf-converter.py:40
+msgid "Output Format:"
+msgstr "Формат вывода:"
+
+#: nautilus-pdf-converter.py:50 nautilus-pdf-converter.py:204
+msgid "Resolution (DPI):"
+msgstr "Разрешение (DPI):"
+
+#: nautilus-pdf-converter.py:82 nautilus-pdf-converter.py:237
+msgid "Converting..."
+msgstr "Конвертация..."
+
+#: nautilus-pdf-converter.py:134
+msgid "Error: No pages found in PDF."
+msgstr "Ошибка: В PDF не найдено страниц."
+
+#: nautilus-pdf-converter.py:185
+msgid "Images to PDF"
+msgstr "Изображения в PDF"
+
+#: nautilus-pdf-converter.py:214
+msgid "Combine"
+msgstr "Объединить"
+
+#: nautilus-pdf-converter.py:220
+#, python-brace-format
+msgid "{0} images selected"
+msgstr "Выбрано {0} изображений"
+
+#: nautilus-pdf-converter.py:339
+#, python-brace-format
+msgid "Done! Saved: {0}"
+msgstr "Готово! Сохранено: {0}"
+
+#: nautilus-pdf-converter.py:359
+msgid "Split PDF to Images"
+msgstr "Разбить PDF на изображения"
+
+#: nautilus-pdf-converter.py:360
+msgid "Convert each PDF page to a separate image file"
+msgstr "Конвертировать каждую страницу PDF в отдельный файл изображения"
+
+#: nautilus-pdf-converter.py:385
+msgid "Combine to PDF"
+msgstr "Объединить в PDF"
+
+#: nautilus-pdf-converter.py:386
+msgid "Combine selected images into a single PDF file"
+msgstr "Объединить выбранные изображения в один файл PDF"
+
+# ── nautilus-admin.py ─────────────────────────────────────────────────────────
+
+#: nautilus-admin.py:75
+msgid "Open as Administrator"
+msgstr "Открыть от имени администратора"
+
+#: nautilus-admin.py:76
+msgid "Open this folder with root privileges"
+msgstr "Открыть эту папку с правами суперпользователя"
+
+#: nautilus-admin.py:84
+msgid "Edit as Administrator"
+msgstr "Редактировать от имени администратора"
+
+#: nautilus-admin.py:85
+msgid "Open this file in the text editor with root privileges"
+msgstr "Открыть этот файл в текстовом редакторе с правами суперпользователя"

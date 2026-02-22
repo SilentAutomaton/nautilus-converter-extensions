@@ -308,10 +308,10 @@ class BaseConverterWindow(Gtk.Window):
         """Create and start FFmpeg thread, begin polling progress queue."""
         self.thread = FFmpeg(self.progress_queue, kwargs_list, cmd_builder=cmd_builder)
         self.thread.start()
-        GLib.timeout_add(100, self._poll_progress_queue)
+        self.add_tick_callback(self._tick_poll)
 
-    def _poll_progress_queue(self):
-        """Poll progress queue and dispatch messages to UI update methods."""
+    def _tick_poll(self, widget, frame_clock):
+        """Poll progress queue each frame and dispatch messages to UI update methods."""
         try:
             while not self.progress_queue.empty():
                 msg = self.progress_queue.get_nowait()
@@ -319,17 +319,10 @@ class BaseConverterWindow(Gtk.Window):
         except queue.Empty:
             pass
 
-        if self.thread and self.thread.is_alive():
-            return True
-
-        # Final drain
-        try:
-            while not self.progress_queue.empty():
-                msg = self.progress_queue.get_nowait()
-                self._dispatch_message(msg)
-        except queue.Empty:
-            pass
-        return False
+        thread_alive = self.thread and self.thread.is_alive()
+        if thread_alive or not self.progress_queue.empty():
+            return GLib.SOURCE_CONTINUE
+        return GLib.SOURCE_REMOVE
 
     def _dispatch_message(self, msg):
         """Route a queue message to the appropriate handler."""
