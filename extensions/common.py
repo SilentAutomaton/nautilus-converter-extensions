@@ -3,7 +3,6 @@ import os
 import re
 import gettext
 import locale
-import shlex
 import threading
 import fcntl
 import time
@@ -93,33 +92,16 @@ FFMPEG_CMD = ["stdbuf", "-e0", "ffmpeg"]
 FFMPEG_DEFAULT_ARGS = "-y -stats -hide_banner -loglevel info"
 
 
-def ffmpeg_cmd_args():
-    """
-    Get ffmpeg command and default args
-    """
-    return {"ffmpeg_cmd": FFMPEG_CMD,
-            "ffmpeg-default-args": FFMPEG_DEFAULT_ARGS}
-
-
 def simple_one_pass(*args, **kwa):
-    """
-    Command builder for one pass
-    """
-    cmd = ffmpeg_cmd_args()
-    pass1 = (cmd["ffmpeg_cmd"] +
-             cmd["ffmpeg-default-args"].split() +
-             kwa.get("pre-input-1", "").split() +
-             kwa["start-time"].split() +
+    pass1 = (FFMPEG_CMD +
+             FFMPEG_DEFAULT_ARGS.split() +
              ["-i", kwa["source"]] +
-             kwa["end-time"].split() +
              kwa["args"][0].split() +
-             kwa.get("volume", "").split() +
              [kwa["destination"]])
 
     count1 = (_("File {0}/{1}\nSource: \"{2}\"\nDestination: \"{3}\" ").format(args[0], args[1], kwa["source"], kwa["destination"]))
-    stamp1 = f'{count1}\n\n[COMMAND]:\n{" ".join(shlex.quote(arg) for arg in pass1)}'
 
-    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+    return {'pass1': pass1, 'count1': count1}
 
 
 class FFmpeg(threading.Thread):

@@ -1,12 +1,11 @@
 from gi.repository import Nautilus, GObject, Gtk, GLib
 import os
-import shlex
 from common import (
     setup_localisation,
     get_duration,
-    ffmpeg_cmd_args,
+    FFMPEG_CMD,
+    FFMPEG_DEFAULT_ARGS,
     BaseConverterWindow,
-    Status,
 )
 
 _ = setup_localisation()
@@ -37,8 +36,7 @@ def subtitle_combiner_pass(*args, **kwa):
     Command builder for subtitle embedding pass.
     Output is always MKV — it supports all subtitle formats natively.
     """
-    cmd = ffmpeg_cmd_args()
-    pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
+    pass1 = FFMPEG_CMD + FFMPEG_DEFAULT_ARGS.split()
     pass1.extend(['-i', kwa["video_file"]])
     for sub_file in kwa["subtitle_files"]:
         pass1.extend(['-i', sub_file])
@@ -53,9 +51,8 @@ def subtitle_combiner_pass(*args, **kwa):
     count1 = _("Embedding {0} subtitle track(s) into \"{1}\"...").format(
         len(kwa["subtitle_files"]), os.path.basename(kwa["video_file"])
     )
-    stamp1 = f'{count1}\n\n[COMMAND]:\n' + " ".join(shlex.quote(arg) for arg in pass1)
 
-    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+    return {'pass1': pass1, 'count1': count1}
 
 
 def subtitle_convert_and_embed_pass(*args, **kwa):
@@ -64,8 +61,7 @@ def subtitle_convert_and_embed_pass(*args, **kwa):
     Does not specify -c:s so ffmpeg auto-selects the subtitle codec for the output format
     (e.g. mov_text for MP4, webvtt for WebM).
     """
-    cmd = ffmpeg_cmd_args()
-    pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
+    pass1 = FFMPEG_CMD + FFMPEG_DEFAULT_ARGS.split()
     pass1.extend(['-i', kwa["video_file"]])
     for sub_file in kwa["subtitle_files"]:
         pass1.extend(['-i', sub_file])
@@ -80,9 +76,8 @@ def subtitle_convert_and_embed_pass(*args, **kwa):
     count1 = _("Converting subtitles and embedding into \"{0}\"...").format(
         os.path.basename(kwa["video_file"])
     )
-    stamp1 = f'{count1}\n\n[COMMAND]:\n' + " ".join(shlex.quote(arg) for arg in pass1)
 
-    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+    return {'pass1': pass1, 'count1': count1}
 
 
 def subtitle_remux_to_mkv_pass(*args, **kwa):
@@ -91,8 +86,7 @@ def subtitle_remux_to_mkv_pass(*args, **kwa):
     Uses -fflags +genpts to fix missing PTS in containers like AVI that store
     only DTS, which causes ffmpeg to fail during remux with -c copy.
     """
-    cmd = ffmpeg_cmd_args()
-    pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
+    pass1 = FFMPEG_CMD + FFMPEG_DEFAULT_ARGS.split()
     pass1.extend(['-fflags', '+genpts'])
     pass1.extend(['-i', kwa["video_file"]])
     for sub_file in kwa["subtitle_files"]:
@@ -108,9 +102,8 @@ def subtitle_remux_to_mkv_pass(*args, **kwa):
     count1 = _("Converting to MKV with {0} subtitle track(s)...").format(
         len(kwa["subtitle_files"])
     )
-    stamp1 = f'{count1}\n\n[COMMAND]:\n' + " ".join(shlex.quote(arg) for arg in pass1)
 
-    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+    return {'pass1': pass1, 'count1': count1}
 
 
 class SubtitleCombinerWindow(BaseConverterWindow):
@@ -182,9 +175,6 @@ class SubtitleCombinerWindow(BaseConverterWindow):
             'destination': output_path,
             'duration': duration * 1000,
             'source': video_file,
-            'start-time': '',
-            'end-time': '',
-            'args': ['', None],
         }
 
         self._start_ffmpeg([kwargs], cmd_builder=cmd_builder)

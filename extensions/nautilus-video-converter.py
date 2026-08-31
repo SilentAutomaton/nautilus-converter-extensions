@@ -239,12 +239,9 @@ class VideoConverterWindow(BaseConverterWindow):
                         args.extend(['-b:v', f'{bitrate}k'])
 
             kwargs = {
-                'type': 'One pass',
                 'source': input_path,
                 'destination': output_path,
-                'start-time': '',
-                'end-time': '',
-                'args': [' '.join(args), None],
+                'args': [' '.join(args)],
                 'duration': duration * 1000,
             }
             kwargs_list.append(kwargs)

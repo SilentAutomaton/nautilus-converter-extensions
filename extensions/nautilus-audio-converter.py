@@ -69,12 +69,9 @@ class AudioConverterWindow(BaseConverterWindow):
             args = [audio_codec]
 
             kwargs = {
-                'type': 'One pass',
                 'source': input_path,
                 'destination': output_path,
-                'start-time': '',
-                'end-time': '',
-                'args': [' '.join(args), None],
+                'args': [' '.join(args)],
                 'duration': duration * 1000,
             }
             kwargs_list.append(kwargs)

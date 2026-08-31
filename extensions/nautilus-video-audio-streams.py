@@ -2,11 +2,11 @@ from gi.repository import Nautilus, GObject, Gtk, GLib
 import subprocess
 import os
 import json
-import shlex
 from common import (
     setup_localisation,
     get_duration,
-    ffmpeg_cmd_args,
+    FFMPEG_CMD,
+    FFMPEG_DEFAULT_ARGS,
     BaseConverterWindow,
     Status,
 )
@@ -17,20 +17,17 @@ _ = setup_localisation()
 # ─── Command builders ─────────────────────────────────────────────────────────
 
 def separator_pass(*args, **kwa):
-    cmd = ffmpeg_cmd_args()
-    pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
+    pass1 = FFMPEG_CMD + FFMPEG_DEFAULT_ARGS.split()
     pass1.extend(['-i', kwa["source"]])
     pass1.extend(kwa["args"][0].split())
     pass1.append(kwa["destination"])
 
     count1 = _("Task {0}/{1}: {2}").format(args[0], args[1], kwa["task_name"])
-    stamp1 = f'{count1}\n\n[COMMAND]:\n{" ".join(shlex.quote(arg) for arg in pass1)}'
-    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+    return {'pass1': pass1, 'count1': count1}
 
 
 def combiner_pass(*args, **kwa):
-    cmd = ffmpeg_cmd_args()
-    pass1 = cmd["ffmpeg_cmd"] + cmd["ffmpeg-default-args"].split()
+    pass1 = FFMPEG_CMD + FFMPEG_DEFAULT_ARGS.split()
     pass1.extend(['-i', kwa["video_file"]])
     for audio_file in kwa["audio_files"]:
         pass1.extend(['-i', audio_file])
@@ -42,8 +39,7 @@ def combiner_pass(*args, **kwa):
     count1 = _("Combining \"{0}\" with {1} audio file(s)...").format(
         os.path.basename(kwa["video_file"]), len(kwa["audio_files"])
     )
-    stamp1 = f'{count1}\n\n[COMMAND]:\n' + " ".join(shlex.quote(arg) for arg in pass1)
-    return {'pass1': pass1, 'count1': count1, 'stamp1': stamp1}
+    return {'pass1': pass1, 'count1': count1}
 
 
 # ─── Shared UI base for simple stream operations ──────────────────────────────
@@ -51,7 +47,7 @@ def combiner_pass(*args, **kwa):
 class _StreamsBaseWindow(BaseConverterWindow):
     """Shared base for Separator and Combiner windows."""
 
-    def _init_ui(self, title_text, default_size=(450, 150)):
+    def _init_ui(self, default_size=(450, 150)):
         self._total_tasks = 0
         self._done_tasks = 0
 
@@ -99,7 +95,7 @@ class SeparatorWindow(_StreamsBaseWindow):
             default_size=(450, 150),
             show_progress_details=False,
         )
-        self._init_ui(title_text=_("Separating Audio/Video"))
+        self._init_ui()
         self._start_separation()
 
     def _get_stream_info(self, input_path):
@@ -125,9 +121,8 @@ class SeparatorWindow(_StreamsBaseWindow):
                 'source': input_path,
                 'destination': f"{base_path}_video{ext}",
                 'duration': duration * 1000,
-                'args': ['-vcodec copy -an', None],
+                'args': ['-vcodec copy -an'],
                 'task_name': _("Extracting video track"),
-                'start-time': '', 'end-time': '',
             })
 
             for i, stream in enumerate(audio_streams):
@@ -145,9 +140,8 @@ class SeparatorWindow(_StreamsBaseWindow):
                     'source': input_path,
                     'destination': f"{base_path}_audio_{i}.{audio_fmt}",
                     'duration': duration * 1000,
-                    'args': [f'-map 0:{stream["index"]} -acodec copy', None],
+                    'args': [f'-map 0:{stream["index"]} -acodec copy'],
                     'task_name': _("Extracting audio track {0}").format(i + 1),
-                    'start-time': '', 'end-time': '',
                 })
 
         if not tasks:
@@ -169,7 +163,7 @@ class CombinerWindow(_StreamsBaseWindow):
             default_size=(450, 150),
             show_progress_details=False,
         )
-        self._init_ui(title_text=_("Combining Audio/Video"))
+        self._init_ui()
         self._start_combination()
 
     def _start_combination(self):
@@ -199,8 +193,6 @@ class CombinerWindow(_StreamsBaseWindow):
             'destination': output_path,
             'duration': duration * 1000,
             'source': video_file,
-            'start-time': '', 'end-time': '',
-            'args': ['', None],
         }
         self._total_tasks = 1
         self._start_ffmpeg([kwargs], cmd_builder=combiner_pass)

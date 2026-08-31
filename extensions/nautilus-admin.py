@@ -5,7 +5,6 @@ from common import setup_localisation
 
 _ = setup_localisation()
 
-ROOT_UID = 0
 NAUTILUS_PATH = "/usr/bin/nautilus"
 TEXT_EDITOR_PATHS = ["/usr/bin/gnome-text-editor", "/usr/bin/gedit"]
 
@@ -15,18 +14,7 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
         pass
 
     def _is_root(self):
-        """
-        Checks if the script is running with root privileges.
-        Tries checking the USER environment variable first, then falls back to geteuid.
-        """
-        if os.environ.get('USER') == 'root':
-            return True
-        try:
-            if os.geteuid() == ROOT_UID:
-                return True
-        except AttributeError:
-            pass
-        return False
+        return os.geteuid() == 0
 
     def _get_text_editor(self):
         for editor in TEXT_EDITOR_PATHS:
