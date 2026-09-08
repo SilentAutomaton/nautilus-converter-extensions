@@ -1,14 +1,18 @@
 import subprocess
+import codecs
 import os
 import re
 import gettext
 import locale
 import threading
-import fcntl
+import select
 import time
 import queue
+import traceback
 from enum import Enum
 
+import gi
+gi.require_version('Gtk', '4.0')
 from gi.repository import Gtk, GLib, Pango
 
 
@@ -134,34 +138,15 @@ class FFmpeg(threading.Thread):
             try:
                 proc1 = subprocess.Popen(model['pass1'],
                               stderr=subprocess.PIPE,
-                              stdin=subprocess.PIPE,
-                              encoding='utf-8',
-                              universal_newlines=True)
+                              stdin=subprocess.DEVNULL,
+                              bufsize=0)
 
                 fd = proc1.stderr.fileno()
-                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-
+                decoder = codecs.getincrementaldecoder('utf-8')('replace')
                 line_buffer = ""
-                while proc1.poll() is None:
-                    try:
-                        data = proc1.stderr.read()
-                        if data:
-                            line_buffer += data
-                            if '\r' in line_buffer or '\n' in line_buffer:
-                                lines = line_buffer.replace('\r', '\n').split('\n')
-                                line_buffer = lines.pop()
-                                for line in lines:
-                                    if line:
-                                        self.progress_queue.put({
-                                            'type': 'output',
-                                            'line': line,
-                                            'duration': kwa['duration'],
-                                            'status': 0,
-                                        })
-                    except (TypeError, BlockingIOError):
-                        time.sleep(0.05)
-
+                # Read to EOF, not until the process exits: ffmpeg emits its
+                # stats in a final burst, which a poll()-bound loop never reads.
+                while True:
                     if self.stop_work_thread:
                         proc1.terminate()
                         try:
@@ -181,12 +166,26 @@ class FFmpeg(threading.Thread):
                         })
                         return
 
-                if self.stop_work_thread:
-                    self.progress_queue.put({
-                        'type': 'end',
-                        'filedone': None,
-                    })
-                    return
+                    if not select.select([fd], [], [], 0.1)[0]:
+                        continue
+
+                    chunk = os.read(fd, 65536)
+                    if not chunk:
+                        break
+
+                    line_buffer += decoder.decode(chunk)
+                    lines = line_buffer.replace('\r', '\n').split('\n')
+                    line_buffer = lines.pop()
+                    for line in lines:
+                        if line:
+                            self.progress_queue.put({
+                                'type': 'output',
+                                'line': line,
+                                'duration': kwa['duration'],
+                                'status': 0,
+                            })
+
+                proc1.wait()
 
                 if line_buffer:
                     self.progress_queue.put({
@@ -294,12 +293,13 @@ class BaseConverterWindow(Gtk.Window):
 
     def _tick_poll(self, widget, frame_clock):
         """Poll progress queue each frame and dispatch messages to UI update methods."""
-        try:
-            while not self.progress_queue.empty():
-                msg = self.progress_queue.get_nowait()
-                self._dispatch_message(msg)
-        except queue.Empty:
-            pass
+        while not self.progress_queue.empty():
+            try:
+                self._dispatch_message(self.progress_queue.get_nowait())
+            except queue.Empty:
+                break
+            except Exception:
+                traceback.print_exc()
 
         thread_alive = self.thread and self.thread.is_alive()
         if thread_alive or not self.progress_queue.empty():
@@ -323,12 +323,8 @@ class BaseConverterWindow(Gtk.Window):
             self.label_file_count.set_text(_("Done!"))
             self.progress_bar.set_fraction(1)
             if self._show_progress_details:
-                newlab = self.label_timestamps.get_label().split()
-                if _('Processing:') in newlab:
-                    newlab[1] = '100%'
-                if 'ETA:' in newlab:
-                    newlab[3] = '00:00:00'
-                self.label_timestamps.set_label(" ".join(newlab))
+                self.label_timestamps.set_text(
+                    _('Processing: {0}% {1}').format('100', 'ETA: 00:00:00'))
         else:
             self.label_file_count.set_text(count)
             self.progress_bar.set_fraction(0)
@@ -352,14 +348,11 @@ class BaseConverterWindow(Gtk.Window):
             pos = time_match.group(1)
             msec = time_to_integer(pos)
 
-            if msec > duration:
-                self.progress_bar.set_fraction(1)
-            elif msec == 0:
-                self.progress_bar.set_fraction(self.progress_bar.get_fraction())
-            else:
-                self.progress_bar.set_fraction(msec / duration if duration > 0 else 0)
+            fraction = min(msec / duration, 1.0) if duration > 0 else 1.0
+            if msec > 0:
+                self.progress_bar.set_fraction(fraction)
 
-            percentage = round((msec / duration) * 100 if duration != 0 else 100)
+            percentage = round(fraction * 100)
 
             ffprog = [f"{k}: {v}" for k, v in _RE_FIELD.findall(output)]
 
@@ -380,8 +373,6 @@ class BaseConverterWindow(Gtk.Window):
 
             self.label_timestamps.set_text(_('Processing: {0}% {1}').format(str(int(percentage)), eta))
             self.label_ffmpeg_output.set_text(' | '.join(ffprog))
-        else:
-            print(output, end="")
 
     def end_conversion(self, filedone):
         """Called when conversion finishes. Override for custom behavior."""

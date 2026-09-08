@@ -82,10 +82,9 @@ class ImageConverterWindow(Gtk.Window):
                     encoding='utf-8',
                 )
                 self.proc = proc
-                proc.wait()
+                _stdout, stderr_output = proc.communicate()
 
                 if proc.returncode != 0:
-                    stderr_output = proc.stderr.read()
                     self._queue.put(('label', _("Error: {0}").format(
                         stderr_output.strip() or f"exit code {proc.returncode}")))
                     self._thread_done = True

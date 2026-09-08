@@ -1,4 +1,4 @@
-from gi.repository import Nautilus, GObject, Gtk, GLib
+from gi.repository import Nautilus, GObject, Gtk, GLib, Gio
 import os
 from common import (
     setup_localisation,
@@ -23,8 +23,14 @@ TEXT_SUBTITLE_EXTENSIONS = frozenset([
 # Video containers that support embedding subtitle streams via ffmpeg.
 # AVI, MPEG-PS and most others do not support subtitle tracks at all.
 SUBTITLE_CAPABLE_MIME_TYPES = frozenset([
-    'video/mp4', 'video/x-m4v', 'video/quicktime', 'video/webm',
+    'video/mp4', 'video/quicktime', 'video/webm',
 ])
+
+
+def mime_is(mime, *types):
+    """Alias-aware MIME test: shared-mime-info renamed video/x-matroska
+    to video/matroska, so a plain string comparison no longer matches."""
+    return any(Gio.content_type_is_a(mime, t) for t in types)
 
 
 def is_subtitle_file(file):
@@ -206,7 +212,7 @@ class SubtitleCombinerExtension(GObject.GObject, Nautilus.MenuProvider):
             return []
 
         video = video_files[0]
-        is_mkv = video.get_mime_type() == 'video/x-matroska'
+        is_mkv = mime_is(video.get_mime_type(), 'video/matroska')
 
         if is_mkv:
             item = Nautilus.MenuItem(
@@ -225,7 +231,7 @@ class SubtitleCombinerExtension(GObject.GObject, Nautilus.MenuProvider):
             for f in sub_files
         )
 
-        if all_text_subs and video.get_mime_type() in SUBTITLE_CAPABLE_MIME_TYPES:
+        if all_text_subs and mime_is(video.get_mime_type(), *SUBTITLE_CAPABLE_MIME_TYPES):
             item = Nautilus.MenuItem(
                 name='SubtitleCombinerExtension::ConvertSubs',
                 label=_('Convert Subtitles and Add to Video'),

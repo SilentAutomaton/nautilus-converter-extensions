@@ -97,6 +97,8 @@ class PdfToImagesWindow(Gtk.Window):
                     self.status_label.set_text(msg[1])
                 elif kind == 'done':
                     self._on_done()
+                elif kind == 'failed':
+                    self._on_failed(msg[1])
         except queue.Empty:
             pass
 
@@ -124,15 +126,13 @@ class PdfToImagesWindow(Gtk.Window):
                 )
                 if split_result.returncode != 0:
                     err = split_result.stderr.strip() or f"exit code {split_result.returncode}"
-                    self._queue.put(('status', _("Error: {0}").format(err)))
-                    self._thread_done = True
+                    self._fail(_("Error: {0}").format(err))
                     return
 
                 page_pdfs = sorted(glob.glob(os.path.join(tmpdir, 'page_*.pdf')))
                 total_pages = len(page_pdfs)
                 if total_pages == 0:
-                    self._queue.put(('status', _("Error: No pages found in PDF.")))
-                    self._thread_done = True
+                    self._fail(_("Error: No pages found in PDF."))
                     return
 
                 # Step 2: convert each page PDF to image with ImageMagick
@@ -154,11 +154,10 @@ class PdfToImagesWindow(Gtk.Window):
 
                     if proc.returncode != 0:
                         err = stderr.strip() or f"exit code {proc.returncode}"
-                        self._queue.put(('status', _("Error: {0}").format(err)))
-                        self._thread_done = True
+                        self._fail(_("Error: {0}").format(err))
                         return
 
-                    overall = (i * total_pages + page_num) / (total * total_pages)
+                    overall = (i + page_num / total_pages) / total
                     self._queue.put(('fraction', overall))
 
             finally:
@@ -166,6 +165,17 @@ class PdfToImagesWindow(Gtk.Window):
 
         self._queue.put(('done', None))
         self._thread_done = True
+
+    def _fail(self, message):
+        self._queue.put(('failed', message))
+        self._thread_done = True
+
+    def _on_failed(self, message):
+        self.status_label.set_text(message)
+        self.action_button.set_label(_("Close"))
+        self.action_button.set_sensitive(True)
+        self.action_button.disconnect_by_func(self.on_convert_clicked)
+        self.action_button.connect("clicked", lambda w: self.close())
 
     def _on_done(self):
         self.progress_bar.set_fraction(1.0)
@@ -306,7 +316,7 @@ class ImagesToPdfWindow(Gtk.Window):
 
                 if proc.returncode != 0:
                     err = stderr.strip() or f"exit code {proc.returncode}"
-                    self._queue.put(('status', _("Error: {0}").format(err)))
+                    self._queue.put(('done', _("Error: {0}").format(err)))
                     self._thread_done = True
                     return
 
@@ -329,7 +339,7 @@ class ImagesToPdfWindow(Gtk.Window):
 
             if proc.returncode != 0:
                 err = stderr.strip() or f"exit code {proc.returncode}"
-                self._queue.put(('status', _("Error: {0}").format(err)))
+                self._queue.put(('done', _("Error: {0}").format(err)))
                 self._thread_done = True
                 return
 

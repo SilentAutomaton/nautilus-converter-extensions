@@ -15,15 +15,18 @@ class VideoConverterWindow(BaseConverterWindow):
         "MPEG-4": {"-c:v mpeg4": ["avi"]},
         "XVID MPEG-4": {"-c:v libxvid": ["avi"]},
         "H.264": {"-c:v libx264": ["mkv", "mp4", "avi", "m4v"]},
-        "H.264 10-bit": {"-c:v libx264": ["mkv", "mp4", "avi", "m4v"]},
+        "H.264 10-bit": {"-c:v libx264 -pix_fmt yuv420p10le": ["mkv", "mp4", "avi", "m4v"]},
         "H.265": {"-c:v libx265": ["mkv", "mp4", "avi", "m4v"]},
-        "H.265 10-bit": {"-c:v libx265": ["mkv", "mp4", "avi", "m4v"]},
+        "H.265 10-bit": {"-c:v libx265 -pix_fmt yuv420p10le": ["mkv", "mp4", "avi", "m4v"]},
         "AOM-AV1": {"-c:v libaom-av1": ["mkv", "webm", "mp4"]},
         "SVT-AV1": {"-c:v libsvtav1": ["mkv", "webm"]},
-        "SVT-AV1 10-bit": {"-c:v libsvtav1": ["mkv", "webm"]},
+        "SVT-AV1 10-bit": {"-c:v libsvtav1 -pix_fmt yuv420p10le": ["mkv", "webm"]},
         "VP9": {"-c:v libvpx-vp9": ["webm", "mkv"]},
-        "Copy": {"-c:v copy": ["mkv", "mp4", "avi", "m4v", "webm", "Copy"]}
+        "Copy": {"-c:v copy": ["mkv", "mp4", "avi", "m4v", "webm"]}
     }
+
+    # Codecs that pin their own pixel format; the advanced dropdown must not override it.
+    TEN_BIT = frozenset(["H.264 10-bit", "H.265 10-bit", "SVT-AV1 10-bit"])
 
     def __init__(self, files):
         super().__init__(title=_("Video Converter"), files=files)
@@ -151,7 +154,7 @@ class VideoConverterWindow(BaseConverterWindow):
         all_same_pix_fmt = len(set(info[2] for info in video_infos)) == 1
         all_same_bitrate = len(set(info[3] for info in video_infos)) == 1
 
-        if video_infos and all(info is not None for info in video_infos):
+        if video_infos and all(info[0] is not None for info in video_infos):
             self.original_width, self.original_height, pix_fmt, bitrate = video_infos[0]
 
             if all_same_resolution:
@@ -173,7 +176,7 @@ class VideoConverterWindow(BaseConverterWindow):
                 self.pix_fmt_combo.set_sensitive(False)
 
             if all_same_bitrate:
-                self.entry_bitrate.set_text(str(bitrate / 1000) if bitrate else "")
+                self.entry_bitrate.set_text(str(bitrate // 1000) if bitrate else "")
             else:
                 self.entry_bitrate.set_sensitive(False)
         else:
@@ -220,7 +223,8 @@ class VideoConverterWindow(BaseConverterWindow):
                 args.extend(['-preset', preset])
 
                 pix_fmt = self.pix_fmt_combo.get_active_text()
-                args.extend(['-pix_fmt', pix_fmt])
+                if vcodec_str not in self.TEN_BIT:
+                    args.extend(['-pix_fmt', pix_fmt])
 
                 if len(self.files) == 1:
                     width = self.entry_width.get_text()

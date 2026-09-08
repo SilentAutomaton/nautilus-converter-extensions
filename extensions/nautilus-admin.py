@@ -11,7 +11,7 @@ TEXT_EDITOR_PATHS = ["/usr/bin/gnome-text-editor", "/usr/bin/gedit"]
 
 class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
     def __init__(self):
-        pass
+        GObject.GObject.__init__(self)
 
     def _is_root(self):
         return os.geteuid() == 0
@@ -25,7 +25,7 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
     def get_file_items(self, *args):
         files = args[-1]
         if self._is_root() or len(files) != 1:
-            return
+            return []
 
         file = files[0]
         items = []
@@ -48,7 +48,7 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
     def get_background_items(self, *args):
         file = args[-1]
         if self._is_root():
-            return
+            return []
 
         items = []
         if file.is_directory() and file.get_uri_scheme() == "file":
@@ -75,12 +75,12 @@ class NautilusAdmin(GObject.GObject, Nautilus.MenuProvider):
         item.connect("activate", self._gedit_run, file, editor_path)
         return item
 
-    def _nautilus_run(self, menu, file):
+    def _admin_uri(self, file):
         uri = file.get_uri()
-        admin_uri = uri.replace("file://", "admin://")
-        subprocess.Popen([NAUTILUS_PATH, admin_uri])
+        return "admin://" + uri[len("file://"):] if uri.startswith("file://") else uri
+
+    def _nautilus_run(self, menu, file):
+        subprocess.Popen([NAUTILUS_PATH, self._admin_uri(file)])
 
     def _gedit_run(self, menu, file, editor_path):
-        uri = file.get_uri()
-        admin_uri = uri.replace("file://", "admin://")
-        subprocess.Popen([editor_path, admin_uri])
+        subprocess.Popen([editor_path, self._admin_uri(file)])
